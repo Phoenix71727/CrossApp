@@ -45,6 +45,15 @@ dotnet run --project src/Cli
 ## Додаткові завдання
 
 ### 1. Порівняння розмірів Self-Contained під різні RID
+
+```powershell
+# Публікація під Windows (win-x64)
+dotnet publish src/Cli -c Release -r win-x64 --self-contained true
+
+# Публікація під Linux (linux-x64)
+dotnet publish src/Cli -c Release -r linux-x64 --self-contained true
+```
+
 - **`win-x64`** (`src/Cli/bin/Release/net10.0/win-x64/publish`): **76.67 MB** *(файл `Cli.exe` — 158 KB)*
 - **`linux-x64`** (`src/Cli/bin/Release/net10.0/linux-x64/publish`): **78.80 MB**
 
