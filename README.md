@@ -119,15 +119,15 @@ CrossApp/
 ## Публікація (з Лабораторної №2)
 
 ```bash
-# Framework-dependent
-dotnet publish src/Cli -c Release -r win-x64 --self-contained false -o dist/fdd-win
+# Framework-dependent (потрібен встановлений .NET 10 Runtime)
+dotnet publish src/Cli -c Release -f net10.0 -r win-x64 --self-contained false -o dist/fdd-win
 
-# Self-contained
-dotnet publish src/Cli -c Release -r win-x64 --self-contained true -o dist/scd-win
-dotnet publish src/Cli -c Release -r linux-x64 --self-contained true -o dist/scd-linux
+# Self-contained (автономний, завантажує runtime у пакет)
+dotnet publish src/Cli -c Release -f net10.0 -r win-x64 --self-contained true -o dist/scd-win
+dotnet publish src/Cli -c Release -f net10.0 -r linux-x64 --self-contained true -o dist/scd-linux
 
-# Single-File + Trimmed
-dotnet publish src/Cli -c Release -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true -o dist/single-trimmed-win
+# Single-File + Trimmed (максимальна оптимізація в один файл)
+dotnet publish src/Cli -c Release -f net10.0 -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true -o dist/single-trimmed-win
 ```
 
 ### Порівняння результатів публікації
