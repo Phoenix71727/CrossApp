@@ -1,0 +1,14 @@
+[
+  { "id": "P-001", "name": "Ноутбук Lenovo ThinkPad", "price": 32500.00, "category": "Комп'ютери" },
+  { "id": "P-002", "name": "Монітор Dell 27 4K", "price": 14200.50, "category": "Периферія" },
+  { "id": "P-003", "name": "Механічна клавіатура Keychron", "price": 4100.00, "category": "Аксесуари" },
+  { "id": "P-004", "name": "Бездротова миша Logitech MX", "price": 3450.75, "category": "Аксесуари" },
+  { "id": "P-005", "name": "Навушники Sony WH-1000XM5", "price": 12999.00, "category": "Аудіо" },
+  { "id": "P-006", "name": "Веб-камера Logitech Brio", "price": 6800.00, "category": "Відео" },
+  { "id": "P-007", "name": "USB-хаб Baseus Type-C", "price": 1250.00, "category": "Комутація" },
+  { "id": "P-008", "name": "SSD накопичувач Samsung 1TB", "price": 3890.00, "category": "Накопичувачі" },
+  { "id": "P-009", "name": "Мікрофон Rode NT-USB", "price": 5600.00, "category": "Аудіо" },
+  { "id": "P-010", "name": "Крісло ергономічне Hator", "price": 8900.00, "category": "Меблі" },
+  { "id": "P-011", "name": "", "price": 150.00, "category": "Кабелі" },
+  { "id": "P-012", "name": "Графічний планшет Wacom", "price": -500.00, "category": "Периферія" }
+]

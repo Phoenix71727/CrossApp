@@ -22,46 +22,112 @@
 
 ```bash
 # 1. Клонування репозиторію
-git clone https://github.com/Phoenix71727/Cross_App
-cd Cross_App
+git clone https://github.com/Phoenix71727/CrossApp.git
+cd CrossApp
 
 # 2. Збирання проєкту
 dotnet build
 
-# 3. Запуск консольного застосунку
+# 3. Запуск за замовчуванням (імпорт data/sample.csv)
 dotnet run --project src/Cli
-dotnet run --project src/Cli -- --json
+
+# 4. Імпорт конкретного файлу (CSV або JSON)
+dotnet run --project src/Cli -- data/sample.csv
+dotnet run --project src/Cli -- data/sample.json
+
+# 5. Імпорт різнорідних даних (товари + клієнти)
+dotnet run --project src/Cli -- data/mixed.csv
 ```
 
-## Середовище
+---
 
-- .NET SDK 10.0.400
-- RID: win-x64
-- ОС: Windows 11 Pro x64 (Build 26200)
-- Редактор: Visual Studio Code + C# Dev Kit
+## Середовище розробки
+
+- **.NET SDK**: 10.0.400 (TFM: `net10.0`, `net8.0`, RID: `win-x64`)
+- **ОС**: Windows 11 Pro x64 (Build 26200)
+- **Редактор**: Visual Studio Code + C# Dev Kit
+
+---
 
 ## Структура solution
 
 ```text
-CrossApp.sln
-└── src/
-    ├── Core/        # class library (net8.0;net10.0), без точки входу
-    │   ├── EnvironmentInfo.cs
-    │   ├── Dto/       # record-типи (тиждень 3)
-    │   ├── Domain/    # сутності з поведінкою (тиждень 4)
-    │   └── Storage/   # сховища (тиждень 5)
-    └── Cli/         # консольний застосунок (net10.0), ProjectReference → Core
+CrossApp/
+├── data/
+│   ├── sample.csv          # 10+ валідних товарів + 3 дефектні рядки
+│   ├── sample.json         # товари у форматі JSON (додаткове завдання 1)
+│   └── mixed.csv           # змішані товари (P) і клієнти (C) (додаткове завдання 2)
+├── src/
+│   ├── Core/               # class library (net8.0; net10.0), без точки входу
+│   │   ├── EnvironmentInfo.cs
+│   │   ├── Dto/
+│   │   │   ├── IEntityDto.cs
+│   │   │   ├── ProductDto.cs
+│   │   │   ├── CustomerDto.cs
+│   │   │   └── ImportResult.cs
+│   │   └── Import/
+│   │       ├── ProductCsvImporter.cs
+│   │       ├── ProductJsonImporter.cs
+│   │       └── OrderDataImporter.cs
+│   └── Cli/                # консольний застосунок, ProjectReference → Core
+│       └── Program.cs
+└── CrossApp.sln
 ```
 
-## Публікація
+Залежність строго одностороння: `Cli` → `Core`.
+
+---
+
+## Лабораторна робота №3: Імпорт даних та DTO
+
+### Формат файлів даних
+- **Роздільник**: `;` (крапка з комою, щоб уникнути конфліктів із комами в назвах).
+- **Кодування**: `UTF-8` (забезпечує крос-платформність кирилиці).
+- **Парсинг чисел**: `CultureInfo.InvariantCulture` (запобігає помилкам парсингу десяткової крапки `32500.00` на локалях із комою).
+
+### Pattern Matching у розборі CSV (`switch expression`)
+Розбір рядка реалізовано в `src/Core/Import/ProductCsvImporter.cs` через `switch expression` з використанням наступних видів патернів:
+1. **Патерн властивостей та реляційний патерн**: `{ Length: < 3 } => ...`
+2. **Патерни списків та константний патерн**: `["", _, ..] or [_, "", ..] => ...` (відсіювання порожніх обов'язкових полів).
+3. **Патерн списку з охоронною умовою `when`**: `[_, _, var priceStr, ..] when !decimal.TryParse(...) => ...`
+4. **Патерни списків для успішного розбору**: `[var id, var name, var priceStr]` або `[var id, var name, var priceStr, var category]`.
+5. **Discard (універсальна гілка)**: `_ => ...`
+
+---
+
+## Додаткові завдання Лабораторної №3
+
+### 1. JSON-імпортер (`ProductJsonImporter`)
+- Реалізовано імпорт товарів із файлів `.json` через `System.Text.Json` на базі тих самих типів `ProductDto`.
+- Застосунок у `Program.cs` автоматично обирає відповідний імпортер (`.csv` чи `.json`) за розширенням файлу через `switch expression`.
+
+### 2. Різнорідний імпорт (`OrderDataImporter`)
+- Підтримка обробки файлів змішаного типу (`data/mixed.csv`) за префіксами рядка в єдиному `switch`:
+  - `"P;..."` — розпізнається як товар (`ProductDto`).
+  - `"C;..."` — розпізнається як клієнт (`CustomerDto`).
+- `Program.cs` використовує pattern matching для диференційованого виводу:
+  `item switch { ProductDto p => ..., CustomerDto c => ... }`.
+
+### 3. Підсумкова статистика імпорту
+- Наприкінці роботи програма виводить статистику одним рядком:
+  ```text
+  Статистика імпорту: усього 13 | прийнято 10 | пропущено 3 | помилок 23,1%
+  ```
+
+---
+
+## Публікація (з Лабораторної №2)
 
 ```bash
-# Framework-dependent (потрібен встановлений .NET Runtime)
+# Framework-dependent
 dotnet publish src/Cli -c Release -r win-x64 --self-contained false -o dist/fdd-win
 
-# Self-contained (автономний запуск без встановленого .NET)
+# Self-contained
 dotnet publish src/Cli -c Release -r win-x64 --self-contained true -o dist/scd-win
 dotnet publish src/Cli -c Release -r linux-x64 --self-contained true -o dist/scd-linux
+
+# Single-File + Trimmed
+dotnet publish src/Cli -c Release -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true -o dist/single-trimmed-win
 ```
 
 ### Порівняння результатів публікації
@@ -71,52 +137,5 @@ dotnet publish src/Cli -c Release -r linux-x64 --self-contained true -o dist/scd
 | `win-x64` | framework-dependent | 7 | 0.2 МБ | так (.NET 10) |
 | `win-x64` | self-contained | 194 | 76.7 МБ | ні |
 | `linux-x64` | self-contained | 194 | 78.8 МБ | ні |
-
-**Self-contained** — у каталог публікації копіюється повний .NET runtime і системні бібліотеки. Застосунок працює автономно на машині без .NET, але каталог має більший розмір і прив'язаний до конкретного RID.
-
-**Framework-dependent** — містить лише скомпільований код застосунку та залежності. Каталог маленький (~200 КБ), але на цільовій машині має бути встановлений .NET 10.
-
-## Додаткові завдання
-
-### 1. Публікація в один файл (Single-File Publish)
-
-Усі керовані збірки пакуються в єдиний виконуваний бінарний файл `Cli.exe`:
-
-```bash
-dotnet publish src/Cli -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o dist/single-win
-```
-
-- Результат: **1 файл** (`Cli.exe`), розмір **70.1 МБ**.
-
-### 2. Оптимізація розміру (Trimmed Publish)
-
-Інструмент IL Trimmer аналізує граф викликів і видаляє невикористовуваний код із BCL:
-
-```bash
-# Звичайний тримінг
-dotnet publish src/Cli -c Release -r win-x64 --self-contained true -p:PublishTrimmed=true -o dist/trimmed-win
-
-# Максимальна оптимізація: Single-File + Trimmed
-dotnet publish src/Cli -c Release -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true -o dist/single-trimmed-win
-```
-
-| Режим оптимізації | К-ть файлів | Розмір | Економія |
-|---|---|---|---|
-| Self-contained (базовий) | 194 | 76.7 МБ | 0% |
-| Self-contained + Trimmed | 31 | 19.2 МБ | ~75% |
-| Self-contained + Single-File + Trimmed | 1 | 12.3 МБ | **~84%** |
-
-### 3. Умовна компіляція (Multi-targeting у Core)
-
-Бібліотека `Core` підтримує одночасну збірку під `net8.0` та `net10.0`. За допомогою директив препроцесора `#if NET10_0_OR_GREATER` код адаптується під цільовий рантайм:
-
-```csharp
-public static string BuildTarget =>
-#if NET10_0_OR_GREATER
-    ".NET 10.0 (Core TFM)";
-#elif NET8_0
-    ".NET 8.0 (Core TFM)";
-#else
-    "Unknown Target";
-#endif
-```
+| `win-x64` | self-contained + single-file | 1 | 70.1 МБ | ні |
+| `win-x64` | self-contained + single-file + trimmed | 1 | 12.3 МБ | ні (економія 84%) |
