@@ -19,7 +19,10 @@ public static class OrderStoreFactory
         bool useFile = args.Contains("--file");
         bool useCache = args.Contains("--cached");
 
-        string dataPath = defaultDataPath ?? Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
+        string dataPath = defaultDataPath
+            ?? (Directory.Exists("data")
+                ? Path.Combine("data", "orders.json")
+                : Path.Combine(AppContext.BaseDirectory, "data", "orders.json"));
 
         IOrderStore store = useFile
             ? new FileOrderStore(dataPath)

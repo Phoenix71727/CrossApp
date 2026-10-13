@@ -240,7 +240,9 @@ static void RunLab5Demo(string[] args)
     // Крок 7 & Бонус 3: Створення сховища через OrderStoreFactory (Composition Root)
     bool useFile = args.Contains("--file");
     bool useCache = args.Contains("--cached");
-    string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
+    string dataPath = Directory.Exists("data")
+        ? Path.Combine("data", "orders.json")
+        : Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
 
     IOrderStore store = OrderStoreFactory.Create(args, dataPath);
     var service = new OrderService(store);
