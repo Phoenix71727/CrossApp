@@ -1,4 +1,6 @@
-﻿namespace Core.Domain;
+using Core.Dto;
+
+namespace Core.Domain;
 
 public sealed class Order
 {
@@ -65,6 +67,38 @@ public sealed class Order
             throw new InvalidOperationException($"Неможливо скасувати замовлення зі статусу '{Status}'. Перехід заборонено.");
 
         Status = OrderStatus.Cancelled;
+    }
+
+    public OrderDto ToDto() => new(
+        Id,
+        CustomerId,
+        CreatedAt,
+        Status,
+        _lines.Select(l => l.ToDto()).ToList());
+
+    public static Order FromDto(OrderDto dto)
+    {
+        ArgumentNullException.ThrowIfNull(dto);
+        Order order = Create(dto.Id, dto.CustomerId, dto.CreatedAt);
+
+        if (dto.Lines != null)
+        {
+            foreach (OrderLineDto lineDto in dto.Lines)
+            {
+                order.AddLine(lineDto.ProductId, lineDto.ProductName, lineDto.Price, lineDto.Quantity);
+            }
+        }
+
+        if (dto.Status == OrderStatus.Confirmed && order.Lines.Count > 0)
+        {
+            order.Confirm();
+        }
+        else if (dto.Status == OrderStatus.Cancelled)
+        {
+            order.Cancel();
+        }
+
+        return order;
     }
 
     public override string ToString() =>

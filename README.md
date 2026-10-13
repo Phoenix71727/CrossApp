@@ -37,6 +37,15 @@ dotnet run --project src/Cli -- data/sample.json
 
 # 5. Імпорт різнорідних даних (товари + клієнти)
 dotnet run --project src/Cli -- data/mixed.csv
+
+# 6. Лабораторна 5: Запуск зі сховищем у пам'яті (InMemoryOrderStore)
+dotnet run --project src/Cli -f net10.0
+
+# 7. Лабораторна 5: Запуск із файловим сховищем JSON (FileOrderStore -> data/orders.json)
+dotnet run --project src/Cli -f net10.0 -- --file
+
+# 8. Лабораторна 5: Запуск із декоратором кешування (CachingOrderStore)
+dotnet run --project src/Cli -f net10.0 -- --file --cached
 ```
 
 ---
@@ -56,10 +65,14 @@ CrossApp/
 ├── data/
 │   ├── sample.csv          # 10+ валідних товарів + 3 дефектні рядки
 │   ├── sample.json         # товари у форматі JSON (додаткове завдання 1)
-│   └── mixed.csv           # змішані товари (P) і клієнти (C) (додаткове завдання 2)
+│   ├── mixed.csv           # змішані товари (P) і клієнти (C) (додаткове завдання 2)
+│   └── orders.json         # збережені замовлення у файловому режимі (Лаба 5)
 ├── src/
 │   ├── Core/               # class library (net8.0; net10.0), без точки входу
 │   │   ├── EnvironmentInfo.cs
+│   │   ├── SampleData.cs   # зразки товарів і замовлень для наповнення сховища
+│   │   ├── Abstractions/
+│   │   │   └── IOrderStore.cs           # контракт сховища замовлень
 │   │   ├── Domain/
 │   │   │   ├── Order.cs
 │   │   │   ├── OrderLine.cs
@@ -72,17 +85,135 @@ CrossApp/
 │   │   │   ├── IEntityDto.cs
 │   │   │   ├── ProductDto.cs
 │   │   │   ├── CustomerDto.cs
+│   │   │   ├── OrderDto.cs              # OrderDto та OrderLineDto для збереження
 │   │   │   └── ImportResult.cs
 │   │   └── Import/
 │   │       ├── ProductCsvImporter.cs
 │   │       ├── ProductJsonImporter.cs
 │   │       └── OrderDataImporter.cs
+│   │   ├── Services/
+│   │   │   └── OrderService.cs          # доменний сервіс замовлень
+│   │   └── Storage/
+│   │       ├── InMemoryOrderStore.cs    # реалізація сховища в пам'яті
+│   │       ├── FileOrderStore.cs        # реалізація файлового JSON-сховища
+│   │       ├── CachingOrderStore.cs     # декоратор кешування (патерн Decorator)
+│   │       └── OrderStoreFactory.cs     # фабрика сховищ (патерн Simple Factory)
 │   └── Cli/                # консольний застосунок, ProjectReference → Core
 │       └── Program.cs
 └── CrossApp.sln
 ```
 
 Залежність строго одностороння: `Cli` → `Core`.
+
+---
+
+## Лабораторна робота №5: Сховище даних, Dependency Injection (ручне), інверсія залежностей (DIP)
+
+### 1. Домен, агрегат та інтерфейс сховища
+- **Предметна область**: Замовлення (`Order`, `OrderLine`, `Customer`, `Product`).
+- **Корінь агрегату**: `Order`. Замовлення зберігається та завантажується разом з усіма своїми рядками `OrderLine` як єдине неподільне ціле.
+- **Контракт сховища (`IOrderStore`)**: розташований у `src/Core/Abstractions/IOrderStore.cs`:
+  ```csharp
+  namespace Core.Abstractions;
+
+  public interface IOrderStore
+  {
+      IReadOnlyList<Order> List();
+      Order? GetById(string id);
+      IReadOnlyList<Order> Find(Func<Order, bool> predicate);
+      void Add(Order item);
+      void Update(Order item);
+      bool Remove(string id);
+  }
+  ```
+  * `IReadOnlyList<Order> List()` — повертає доступну лише для читання колекцію, щоб зовнішній клієнтський код не міг мутувати внутрішній стан сховища в обхід методів `Add`/`Update`/`Remove`.
+  * `Order? GetById(string id)` — повертає nullable тип `Order?`, оскільки запису з таким ідентифікатором може не існувати (нормальний результат пошуку, а не збій).
+  * `IReadOnlyList<Order> Find(Func<Order, bool> predicate)` — гнучка фільтрація за довільною предикатною умовою (підготовка до LINQ).
+  * `void Add(Order item)` — валідує аргумент (`ArgumentNullException.ThrowIfNull`) та контролює унікальність `Id` у колекції (`ContainsKey` $\rightarrow$ `InvalidOperationException`).
+  * `void Update(Order item)` — оновлює стан збереженого агрегату.
+  * `bool Remove(string id)` — видаляє замовлення за `id`.
+
+---
+
+### 2. Реалізації сховища
+1. **`InMemoryOrderStore` (у пам'яті):**
+   - Працює на базі `Dictionary<string, Order>` з нечутливим до регістру порівнянням ключів `StringComparer.OrdinalIgnoreCase`.
+   - Приймає початкові дані через первинний конструктор: `public sealed class InMemoryOrderStore(IEnumerable<Order>? seed = null) : IOrderStore`.
+   - Заповнюється валідними зразками через `SampleData.Orders()`. Дані існують лише під час виконання процесу.
+2. **`FileOrderStore` (файлове сховище JSON):**
+   - Шлях збереження: `data/orders.json` (відносний через `AppContext.BaseDirectory`).
+   - Кеш у пам'яті: приватний словник `_cache` забезпечує миттєвий доступ до замовлень.
+   - Ліниве завантаження (`EnsureLoaded()`): зчитує `orders.json` лише при першому зверненні, відновлюючи доменні агрегати через DTO-мапінг `Order.FromDto(dto)`.
+   - Синхронізація на диск (`Flush()`): автоматично викликається після кожної зміни (`Add`, `Update`, `Remove`), створює директорію за потреби (`Directory.CreateDirectory`) та записує відформатований JSON (`WriteIndented = true`, `JavaScriptEncoder.UnsafeRelaxedJsonEscaping` для чистого UTF-8 тексту кирилиці).
+3. **`CachingOrderStore` (декоратор кешування — Додаткове завдання 1):**
+   - Реалізує патерн **Decorator** (GoF): приймає `IOrderStore inner` у конструкторі, надає той самий контракт `IOrderStore`, але прозоро кешує запити `GetById` / `Find` та веде підрахунок метрик `CacheHits` і `CacheMisses`. Демонструє принцип Open/Closed (OCP).
+4. **`OrderStoreFactory` (фабрика сховищ — Додаткове завдання 3):**
+   - Патерн **Simple Factory**: інкапсулює правила створення сховища залежно від прапорців CLI (`--file`, `--cached`).
+
+---
+
+### 3. Схема залежностей та архітектура
+Застосовано принцип інверсії залежностей (**Dependency Inversion Principle, DIP**): модулі вищого рівня (`OrderService`) та деталі нижчого рівня (`InMemoryOrderStore`, `FileOrderStore`) залежать від абстракції (`IOrderStore`).
+
+```text
+       ┌──────────────┐
+       │   src/Cli    │  (Composition Root: розбір аргументів, OrderStoreFactory)
+       └──────┬───────┘
+              │ створює та передає через new
+              ▼
+    ┌──────────────────┐       викликає        ┌──────────────────┐
+    │   OrderService   ├──────────────────────►│   IOrderStore    │ (Abstractions)
+    └──────────────────┘                       └────────▲─────────┘
+                                                        │
+                      ┌─────────────────────────────────┼─────────────────────────────────┐
+                      │ реалізує                        │ реалізує                        │ реалізує (Decorator)
+             ┌────────┴───────────┐           ┌─────────┴─────────┐           ┌───────────┴────────────┐
+             │ InMemoryOrderStore │           │  FileOrderStore   │           │    CachingOrderStore   │
+             └────────────────────┘           └───────────────────┘           └────────────────────────┘
+```
+
+`OrderService` не має жодної залежності від `Core.Storage` чи `FileOrderStore`, його єдина залежність — інтерфейс `IOrderStore`.
+
+---
+
+### 4. Доменний сервіс `OrderService`
+Сервіс виконує прикладні операції над замовленнями:
+* `CreateOrder(customerId)` — створення замовлення з автоматичною генерацією унікального `Id` (`Guid.NewGuid().ToString("N")[..8]`);
+* `AddLine(orderId, productId, name, price, quantity)` — отримання замовлення через `_store.GetById(id) ?? throw`, додавання рядка з перевіркою інваріантів сутності, фіксація через `_store.Update(order)`;
+* `Confirm(orderId)` — валідація наявності та переведення статусу у `Confirmed` через `order.Confirm()`, збереження в сховищі;
+* `Cancel(orderId)` — скасування замовлення за правилами переходів станів;
+* `All()` та `Find(id)` / `Find(predicate)` — отримання та гнучкий пошук замовлень.
+
+---
+
+### 5. Composition Root у `Program.cs`
+Ручне впровадження залежностей (Manual / Pure DI) без використання сторонніх DI-контейнерів:
+```csharp
+// Cli/Program.cs
+bool useFile = args.Contains("--file");
+bool useCache = args.Contains("--cached");
+string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
+
+IOrderStore store = OrderStoreFactory.Create(args, dataPath);
+var service = new OrderService(store);
+```
+
+---
+
+### 6. Сценарії відмови (Error Handling)
+Усі помилки перехоплюються на рівні CLI за допомогою блоків `try/catch` без стек-трейсу та аварійного завершення програми:
+* **Спроба додати замовлення з дублікатом `Id`** $\rightarrow$ `[InvalidOperationException]: Замовлення з id='...' уже існує.`
+* **Звернення до неіснуючого замовлення (`AddLine` / `Confirm`)** $\rightarrow$ `[InvalidOperationException]: Немає замовлення з id='ORD-NON-EXISTENT'.`
+* **Порушення бізнес-інваріантів (додавання у підтверджене замовлення)** $\rightarrow$ `[InvalidOperationException]: Не можна додавати рядки до замовлення зі статусом 'Confirmed'.`
+
+---
+
+### 7. Додаткові завдання Лабораторної №5
+1. **Декоратор `CachingOrderStore`**: реалізує `IOrderStore`, огортає внутрішнє сховище `inner`, додає in-memory кеш та збір статистики звернень (перший виклик `Misses = 1, Hits = 0`, повторний `Misses = 1, Hits = 1`).
+2. **Пошук за предикатом `Func<Order, bool>`**: підтримка фільтрації замовлень у `IOrderStore` та `OrderService` (наприклад, пошук усіх підтверджених замовлень на суму $> 30\,000$ грн).
+3. **Фабрика `OrderStoreFactory` та аналіз підходів**:
+   * *Варіант «усе в Program.cs»*: лаконічний для найпростіших утиліт, але змішує консольний інтерфейс зі створенням об'єктів.
+   * *Варіант `OrderStoreFactory`*: дотримується Single Responsibility Principle (SRP), інкапсулює розбір прапорців (`--file`, `--cached`) і логіку конфігурації сховищ, дозволяє легко писати тести на створення компонентів.
 
 ---
 

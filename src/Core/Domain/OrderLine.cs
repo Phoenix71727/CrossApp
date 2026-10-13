@@ -1,3 +1,5 @@
+using Core.Dto;
+
 namespace Core.Domain;
 
 public sealed class OrderLine
@@ -32,6 +34,14 @@ public sealed class OrderLine
             throw new ArgumentOutOfRangeException(nameof(quantity), quantity, "Кількість товару в рядку має бути більшою за нуль");
 
         return new OrderLine(productId.Trim(), productName.Trim(), price, quantity);
+    }
+
+    public OrderLineDto ToDto() => new(ProductId, ProductName, Price, Quantity);
+
+    public static OrderLine FromDto(OrderLineDto dto)
+    {
+        ArgumentNullException.ThrowIfNull(dto);
+        return Create(dto.ProductId, dto.ProductName, dto.Price, dto.Quantity);
     }
 
     public override string ToString() => $"{ProductName} (x{Quantity}) — {LineTotal:F2} грн";
