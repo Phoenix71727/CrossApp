@@ -25,12 +25,15 @@ public sealed class FileOrderStore(string path) : IOrderStore
         if (File.Exists(_path))
         {
             string json = File.ReadAllText(_path);
-            var dtos = JsonSerializer.Deserialize<List<OrderDto>>(json) ?? [];
-
-            foreach (var dto in dtos)
+            if (!string.IsNullOrWhiteSpace(json))
             {
-                var order = Order.FromDto(dto);
-                _cache[order.Id] = order;
+                var dtos = JsonSerializer.Deserialize<List<OrderDto>>(json) ?? [];
+
+                foreach (var dto in dtos)
+                {
+                    var order = Order.FromDto(dto);
+                    _cache[order.Id] = order;
+                }
             }
         }
 

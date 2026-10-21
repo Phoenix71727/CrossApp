@@ -338,15 +338,18 @@ static void RunLab5Demo(string[] args)
 
     Console.WriteLine("\n[4] ДОДАТКОВЕ ЗАВДАННЯ: ДЕКОРАТОР СХОВИЩА CachingOrderStore");
     Console.WriteLine(new string('-', 72));
-    var cachedStore = new CachingOrderStore(store);
-    var cachedService = new OrderService(cachedStore);
-
-    Console.WriteLine($"• Створено декоратор CachingOrderStore поверх {store.GetType().Name}");
-    _ = cachedService.Find(createdOrder.Id);
-    Console.WriteLine($"  1-й виклик Find('{createdOrder.Id}') -> Hits: {cachedStore.CacheHits}, Misses: {cachedStore.CacheMisses} (дані з внутрішнього сховища)");
-
-    _ = cachedService.Find(createdOrder.Id);
-    Console.WriteLine($"  2-й виклик Find('{createdOrder.Id}') -> Hits: {cachedStore.CacheHits}, Misses: {cachedStore.CacheMisses} (миттєве повернення з кешу декоратора)");
+    if (store is CachingOrderStore cachingStore)
+    {
+        Console.WriteLine($"• Декоратор CachingOrderStore АКТИВОВАНО (задано прапорець --cached)");
+        _ = service.Find(createdOrder.Id);
+        Console.WriteLine($"  Повторний виклик Find('{createdOrder.Id}') -> Hits: {cachingStore.CacheHits}, Misses: {cachingStore.CacheMisses} (дані повернено з кешу декоратора)");
+    }
+    else
+    {
+        Console.WriteLine($"• Декоратор CachingOrderStore НЕ АКТИВОВАНО (прапорець --cached не задано)");
+        Console.WriteLine($"  Сховище {store.GetType().Name} працює напряму без кешування.");
+        Console.WriteLine($"  Щоб активувати кешуючий декоратор, додайте прапорець: --cached");
+    }
 
     Console.WriteLine("\n[5] ДОДАТКОВЕ ЗАВДАННЯ: ПОРІВНЯННЯ StoreFactory VS INLINE В Program.cs");
     Console.WriteLine(new string('-', 72));
