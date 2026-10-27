@@ -67,12 +67,15 @@ CrossApp/
 │   ├── sample.json         # товари у форматі JSON (додаткове завдання 1)
 │   ├── mixed.csv           # змішані товари (P) і клієнти (C) (додаткове завдання 2)
 │   └── orders.json         # збережені замовлення у файловому режимі (Лаба 5)
+├── logs/
+│   └── app.log             # журнал доменних подій (Лаба 6)
 ├── src/
 │   ├── Core/               # class library (net8.0; net10.0), без точки входу
 │   │   ├── EnvironmentInfo.cs
 │   │   ├── SampleData.cs   # зразки товарів і замовлень для наповнення сховища
 │   │   ├── Abstractions/
-│   │   │   └── IOrderStore.cs           # контракт сховища замовлень
+│   │   │   ├── IOrderStore.cs           # контракт сховища замовлень (Лаба 5)
+│   │   │   └── INotificationSink.cs     # контракт приймача сповіщень DI (Лаба 6)
 │   │   ├── Domain/
 │   │   │   ├── Order.cs
 │   │   │   ├── OrderLine.cs
@@ -87,23 +90,99 @@ CrossApp/
 │   │   │   ├── CustomerDto.cs
 │   │   │   ├── OrderDto.cs              # OrderDto та OrderLineDto для збереження
 │   │   │   └── ImportResult.cs
-│   │   └── Import/
-│   │       ├── ProductCsvImporter.cs
-│   │       ├── ProductJsonImporter.cs
-│   │       └── OrderDataImporter.cs
+│   │   ├── Events/                      # Доменні події (Лаба 6)
+│   │   │   ├── OrderChangeKind.cs       # enum видів подій
+│   │   │   └── OrderChangedEventArgs.cs # аргументи події (EventArgs)
+│   │   ├── Import/
+│   │   │   ├── ProductCsvImporter.cs    # підтримка Action<string> для онлайн-звіту
+│   │   │   ├── ProductJsonImporter.cs
+│   │   │   └── OrderDataImporter.cs
 │   │   ├── Services/
-│   │   │   └── OrderService.cs          # доменний сервіс замовлень
+│   │   │   └── OrderService.cs          # доменний сервіс замовлень з подією Changed
 │   │   └── Storage/
 │   │       ├── InMemoryOrderStore.cs    # реалізація сховища в пам'яті
 │   │       ├── FileOrderStore.cs        # реалізація файлового JSON-сховища
 │   │       ├── CachingOrderStore.cs     # декоратор кешування (патерн Decorator)
 │   │       └── OrderStoreFactory.cs     # фабрика сховищ (патерн Simple Factory)
 │   └── Cli/                # консольний застосунок, ProjectReference → Core
+│       ├── Notifications/
+│       │   └── NotificationSinks.cs     # реалізації ConsoleSink та FileSink (Лаба 6)
 │       └── Program.cs
 └── CrossApp.sln
 ```
 
-Залежність строго одностороння: `Cli` → `Core`.
+Залежність строго одностороння: `Cli` → `Core`. `src/Core` не містить жодної згадки про `Console` чи файлові шляхи логів.
+
+---
+
+## Лабораторна робота №6: Доменні події, делегати Action/Func, лямбди
+
+### 1. Мета та архітектурне призначення
+Реалізовано механізм сповіщення зовнішнього коду про зміну стану доменної моделі без створення зворотної залежності `Core` від деталей виведення (консолі, логерів, файлів).  
+`Core` виступає видавцем (Publisher), а `Cli` — підписником (Subscriber) у патерні **Observer**.
+
+### 2. Опис доменних подій (`src/Core/Events`)
+* **`OrderChangeKind` (перелічення / enum):**
+  - `OrderCreated` — створено нове замовлення;
+  - `LineAdded` — додано товарну позицію;
+  - `OrderConfirmed` — замовлення переведено в підтверджений стан;
+  - `OrderCancelled` — замовлення скасовано.
+* **`OrderChangedEventArgs` (`EventArgs`):**
+  - Відповідає загальноприйнятим конвенціям .NET та успадкований від `System.EventArgs`.
+  - Властивості:
+    - `OrderId` (`string`) — ідентифікатор зміненого замовлення;
+    - `Kind` (`OrderChangeKind`) — тип події;
+    - `LinesCount` (`int`) — кількість позицій у замовленні на момент події;
+    - `Total` (`decimal`) — підсумкова вартість замовлення;
+    - `At` (`DateTimeOffset`) — точний момент створення аргументів (`DateTimeOffset.Now`).
+
+### 3. Оголошення та підняття події в `OrderService`
+* Оголошення події на основі стандартного узагальненого делегата `EventHandler<T>`:
+  ```csharp
+  public event EventHandler<OrderChangedEventArgs>? Changed;
+  ```
+* Безпечне підняття через приватний метод та умовний оператор `?.Invoke`:
+  ```csharp
+  private void OnChanged(Order order, OrderChangeKind kind)
+  {
+      Changed?.Invoke(this, new OrderChangedEventArgs(order.Id, kind, order.Lines.Count, order.Total));
+      _sink?.Notify($"Подія {kind} для замовлення #{order.Id} (сума: {order.Total:F2} грн)");
+  }
+  ```
+* **Захист інваріантів:** виклик `OnChanged` розташовано **суворо після** перевірки правил і збереження в `_store.Add()` / `_store.Update()`. Якщо операція викидає виняток (наприклад, замовлення не знайдено, або порушено правила переходу статусів), метод переривається, і подія **не надсилається**.
+
+### 4. Підписники, замикання та відписка в `Program.cs`
+1. **Підписник №1 (іменований локальний метод `OnOrderChanged`)**:
+   - Має стале посилання для забезпечення можливості подальшої відписки через `-=`.
+   - Виводить форматований рядок у консоль і дописує його у `logs/app.log`.
+   - Захищений внутрішнім блоком `try/catch`, щоб помилка логера не порушувала бізнес-транзакцію.
+2. **Підписник №2 (анонімна лямбда із замиканням)**:
+   - `int changes = 0; service.Changed += (_, _) => changes++;`
+   - Утворює замикання (closure) над локальною змінною `changes`.
+   - Застосовує відкидання параметрів `(_, _)`, оскільки тілу не потрібні `sender` та `e`.
+3. **Керована відписка (`-=`)**:
+   - `service.Changed -= OnOrderChanged;` успішно відписує логер. Наступні операції не продукують виведення в консоль і файл, але лічильник подій від другого підписника продовжує зростати.
+4. **Сценарій відмови (порушення інваріантів)**:
+   - Спроба підтвердити неіснуюче замовлення `service.Confirm("ORD-NOT-FOUND")` перехоплюється блоком `try/catch`. Подія не піднімається, лічильник подій залишається незмінним.
+5. **Делегат `Func` замість події**:
+   - Для синхронного отримання відфільтрованих даних реалізовано метод:
+     `public IReadOnlyList<Order> FindAll(Func<Order, bool> predicate)`
+   - Виклик у CLI: `service.FindAll(o => o.IsConfirmed)`.
+
+### 5. Додаткові завдання Лабораторної №6
+1. **Приймач сповіщень `INotificationSink` (ручний DI проти подій)**:
+   - Оголошено контракт `Core.Abstractions.INotificationSink`.
+   - Реалізовано `ConsoleSink` та `FileSink` у шарі CLI (`src/Cli/Notifications/NotificationSinks.cs`).
+   - Передається в `OrderService` через конструктор:
+     `public sealed class OrderService(IOrderStore store, INotificationSink? notificationSink = null)`
+   - *Порівняння у звіті*: DI через `INotificationSink` задає статичний контракт "один-до-одного", що вимагає композиту для кількох приймачів; подія `event` реалізує патерн Observer "один-до-багатьох" з динамічною підпискою та відпискою під час виконання.
+2. **Делегат `Action<string>` у методі імпорту**:
+   - Метод `ProductCsvImporter.Load(path, onSkippedRow: err => ...)` приймає необов'язковий зворотний виклик (callback).
+   - При виявленні пошкодженого рядка сповіщення надсилається миттєво безпосередньо під час парсингу без очікування завершення читання всього файлу.
+3. **Теоретичний аналіз `async void` в обробниках подій**:
+   - `EventHandler<T>` повертає `void`, що змушує писати `async void` для асинхронних операцій у підписнику;
+   - Небезпека: виняток всередині `async void` не може бути перехоплений зовнішнім `try/catch` навколо `Invoke` і призводить до фатального падіння процесу (`AppCrash`); джерело події не може дочекатися завершення асинхронного завдання (`await`).
+   - Правило надійності: весь вміст `async void` обробника зобов'язаний бути обгорнутий усередині у власний блок `try/catch`.
 
 ---
 
