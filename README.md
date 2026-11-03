@@ -14,38 +14,40 @@
 - `OrderLine` — позиція / рядок замовлення
 
 **Призначення застосунку:**  
-Оформлення замовлень клієнтів, ведення товарних позицій та підрахунок їхньої підсумкової вартості.
+Оформлення замовлень клієнтів, ведення товарних позицій, підрахунок підсумкової вартості та аналітична звітність.
 
 ---
 
-## Запуск
+## Запуск (CLI Диспетчер команд)
+
+Застосунок підтримує модульний запуск будь-якої лабораторної роботи або конкретних аналітичних підкоманд:
 
 ```bash
-# 1. Клонування репозиторію
-git clone https://github.com/Phoenix71727/CrossApp.git
-cd CrossApp
-
-# 2. Збирання проєкту
+# 1. Збирання проєкту
 dotnet build
 
-# 3. Запуск за замовчуванням (імпорт data/sample.csv)
-dotnet run --project src/Cli
-
-# 4. Імпорт конкретного файлу (CSV або JSON)
-dotnet run --project src/Cli -- data/sample.csv
-dotnet run --project src/Cli -- data/sample.json
-
-# 5. Імпорт різнорідних даних (товари + клієнти)
-dotnet run --project src/Cli -- data/mixed.csv
-
-# 6. Лабораторна 5: Запуск зі сховищем у пам'яті (InMemoryOrderStore)
+# 2. Запуск за замовчуванням (актуальна Лабораторна 7):
 dotnet run --project src/Cli -f net10.0
 
-# 7. Лабораторна 5: Запуск із файловим сховищем JSON (FileOrderStore -> data/orders.json)
-dotnet run --project src/Cli -f net10.0 -- --file
+# 3. Модульний запуск конкретної лабораторної роботи:
+dotnet run --project src/Cli -f net10.0 -- lab1            # середовище ОС, архітектура, RID
+dotnet run --project src/Cli -f net10.0 -- lab1 --json     # звіт у форматі JSON
+dotnet run --project src/Cli -f net10.0 -- lab2            # архітектура Core+Cli, multi-targeting, публікація
+dotnet run --project src/Cli -f net10.0 -- lab3            # імпорт data/sample.csv
+dotnet run --project src/Cli -f net10.0 -- lab3 data/mixed.csv # імпорт різнорідних даних
+dotnet run --project src/Cli -f net10.0 -- lab4            # доменні сутності, інваріанти в try/catch
+dotnet run --project src/Cli -f net10.0 -- lab5            # сховище в пам'яті (InMemoryOrderStore)
+dotnet run --project src/Cli -f net10.0 -- lab5 --file     # файлове сховище JSON (data/orders.json)
+dotnet run --project src/Cli -f net10.0 -- lab5 --file --cached # сховище з декоратором кешування
+dotnet run --project src/Cli -f net10.0 -- lab6            # доменні події, підписники, відписка (-=)
+dotnet run --project src/Cli -f net10.0 -- lab7            # LINQ-звіти, відкладене виконання, бонуси
 
-# 8. Лабораторна 5: Запуск із декоратором кешування (CachingOrderStore)
-dotnet run --project src/Cli -f net10.0 -- --file --cached
+# 4. Прямі підкоманди аналітичних звітів (Лабораторна 7):
+dotnet run --project src/Cli -f net10.0 -- report-groups   # розподіл замовлень за статусом
+dotnet run --project src/Cli -f net10.0 -- report-sum      # підсумкові показники (Totals)
+dotnet run --project src/Cli -f net10.0 -- report-top      # топ-5 замовлень за сумою
+dotnet run --project src/Cli -f net10.0 -- report-filter   # замовлення дорожче за 30 000 грн
+dotnet run --project src/Cli -f net10.0 -- report-join     # зведений звіт клієнтів (GroupJoin)
 ```
 
 ---
@@ -64,80 +66,159 @@ dotnet run --project src/Cli -f net10.0 -- --file --cached
 CrossApp/
 ├── data/
 │   ├── sample.csv          # 10+ валідних товарів + 3 дефектні рядки
-│   ├── sample.json         # товари у форматі JSON (додаткове завдання 1)
-│   ├── mixed.csv           # змішані товари (P) і клієнти (C) (додаткове завдання 2)
+│   ├── sample.json         # товари у форматі JSON
+│   ├── mixed.csv           # змішані товари (P) і клієнти (C)
 │   └── orders.json         # збережені замовлення у файловому режимі (Лаба 5)
 ├── logs/
 │   └── app.log             # журнал доменних подій (Лаба 6)
 ├── src/
-│   ├── Core/               # class library (net8.0; net10.0), без точки входу
-│   │   ├── EnvironmentInfo.cs
-│   │   ├── SampleData.cs   # зразки товарів і замовлень для наповнення сховища
+│   ├── Core/               # бібліотека класів (net8.0; net10.0), без точки входу
+│   │   ├── EnvironmentInfo.cs   # збір параметрів ОС і середовища (Лаба 1-2)
+│   │   ├── SampleData.cs        # розширений генератор товарів, клієнтів і 17 замовлень
 │   │   ├── Abstractions/
-│   │   │   ├── IOrderStore.cs           # контракт сховища замовлень (Лаба 5)
-│   │   │   └── INotificationSink.cs     # контракт приймача сповіщень DI (Лаба 6)
+│   │   │   ├── IOrderStore.cs       # контракт сховища замовлень (Лаба 5)
+│   │   │   └── INotificationSink.cs # контракт сповіщень для ручного DI (Лаба 6)
 │   │   ├── Domain/
-│   │   │   ├── Order.cs
-│   │   │   ├── OrderLine.cs
-│   │   │   ├── Product.cs
-│   │   │   ├── Customer.cs
-│   │   │   ├── OrderStatus.cs
+│   │   │   ├── Order.cs             # корінь агрегату замовлення (Лаба 4)
+│   │   │   ├── OrderLine.cs         # рядок замовлення
+│   │   │   ├── Product.cs           # сутність товару
+│   │   │   ├── Customer.cs          # сутність клієнта
+│   │   │   ├── OrderStatus.cs       # enum статусів (Draft, Confirmed, Cancelled)
 │   │   │   ├── DomainImportResult.cs
-│   │   │   └── OrderLimitService.cs
+│   │   │   └── OrderLimitService.cs # інваріант двох сутностей
 │   │   ├── Dto/
 │   │   │   ├── IEntityDto.cs
 │   │   │   ├── ProductDto.cs
 │   │   │   ├── CustomerDto.cs
-│   │   │   ├── OrderDto.cs              # OrderDto та OrderLineDto для збереження
+│   │   │   ├── OrderDto.cs
 │   │   │   └── ImportResult.cs
-│   │   ├── Events/                      # Доменні події (Лаба 6)
-│   │   │   ├── OrderChangeKind.cs       # enum видів подій
-│   │   │   └── OrderChangedEventArgs.cs # аргументи події (EventArgs)
+│   │   ├── Events/                  # Доменні події (Лаба 6)
+│   │   │   ├── OrderChangeKind.cs
+│   │   │   └── OrderChangedEventArgs.cs
 │   │   ├── Import/
-│   │   │   ├── ProductCsvImporter.cs    # підтримка Action<string> для онлайн-звіту
+│   │   │   ├── ProductCsvImporter.cs # підтримка Action<string> для онлайн-звіту
 │   │   │   ├── ProductJsonImporter.cs
 │   │   │   └── OrderDataImporter.cs
+│   │   ├── Reports/                 # Аналітичні звіти LINQ (Лаба 7)
+│   │   │   ├── OrderReportLine.cs        # DTO рядка аналітичного звіту
+│   │   │   ├── GroupSummary.cs           # DTO підсумку групи (GroupBy)
+│   │   │   ├── CustomerOrdersSummary.cs  # DTO зведеного звіту (GroupJoin)
+│   │   │   ├── LinqExtensions.cs         # власний метод розширення TopBy
+│   │   │   └── ReportService.cs          # аналітичні запити (чисті функції)
 │   │   ├── Services/
-│   │   │   └── OrderService.cs          # доменний сервіс замовлень з подією Changed
+│   │   │   └── OrderService.cs      # доменний сервіс замовлень
 │   │   └── Storage/
-│   │       ├── InMemoryOrderStore.cs    # реалізація сховища в пам'яті
-│   │       ├── FileOrderStore.cs        # реалізація файлового JSON-сховища
-│   │       ├── CachingOrderStore.cs     # декоратор кешування (патерн Decorator)
-│   │       └── OrderStoreFactory.cs     # фабрика сховищ (патерн Simple Factory)
-│   └── Cli/                # консольний застосунок, ProjectReference → Core
+│   │       ├── InMemoryOrderStore.cs
+│   │       ├── FileOrderStore.cs
+│   │       ├── CachingOrderStore.cs # декоратор кешування (патерн Decorator)
+│   │       └── OrderStoreFactory.cs # фабрика сховищ (патерн Simple Factory)
+│   └── Cli/                # консольний клієнт, диспетчер команд
+│       ├── Demos/          # модульні сценарії демонстрації для кожної лаби
+│       │   ├── Lab1Demo.cs
+│       │   ├── Lab2Demo.cs
+│       │   ├── Lab3Demo.cs
+│       │   ├── Lab4Demo.cs
+│       │   ├── Lab5Demo.cs
+│       │   ├── Lab6Demo.cs
+│       │   └── Lab7Demo.cs
 │       ├── Notifications/
-│       │   └── NotificationSinks.cs     # реалізації ConsoleSink та FileSink (Лаба 6)
-│       └── Program.cs
+│       │   └── NotificationSinks.cs
+│       └── Program.cs      # точка входу (компактний CLI-диспетчер команд)
 └── CrossApp.sln
 ```
 
-Залежність строго одностороння: `Cli` → `Core`. `src/Core` не містить жодної згадки про `Console` чи файлові шляхи логів.
+---
+
+## Лабораторна робота №7: Звіти через LINQ
+
+### 1. Мета та правила реалізації
+Реалізовано аналітичну обробку колекції доменних об’єктів за допомогою **LINQ to Objects**.
+* **Ізоляція логіки:** Уся логіка формування звітів розміщена виключно в `Core` (`ReportService.cs`).
+* **Чистота клієнта:** У `Program.cs` та класах CLI немає жодного оператора `Where`, `GroupBy` чи `Select` — лише виклик сервісу та форматування виводу.
+* **Чисті функції:** Методи `ReportService` приймають `IEnumerable<Order>` та повертають `IReadOnlyList<DTO>`, що робить їх повністю незалежними від сховищ і легкими для тестування.
+* **Відсутність витоку сутностей:** Звіти повертають незмінні `record`-DTO (`OrderReportLine`, `GroupSummary`, `CustomerOrdersSummary`), ізолюючи внутрішню структуру агрегату `Order`.
+
+### 2. Аналітичні запити (`ReportService.cs`)
+
+| Назва методу | Питання бізнес-аналітики | Використані оператори LINQ | Повертає |
+|---|---|---|---|
+| `HighValueOrders` | Які замовлення перевищують встановлений поріг суми ($threshold$)? | `Where` $\rightarrow$ `OrderBy` $\rightarrow$ `ThenBy` $\rightarrow$ `Select` $\rightarrow$ `ToList` | `IReadOnlyList<OrderReportLine>` |
+| `TopOrdersByTotal` | Які топ-N замовлень мають найбільшу вартість? | `TopBy` / `OrderByDescending` $\rightarrow$ `ThenBy` $\rightarrow$ `Take` $\rightarrow$ `Select` $\rightarrow$ `ToList` | `IReadOnlyList<OrderReportLine>` |
+| `ByStatus` | Як розподіляються замовлення за статусами (кількість та сума)? | `GroupBy` $\rightarrow$ `Select` $\rightarrow$ `OrderByDescending` $\rightarrow$ `ToList` | `IReadOnlyList<GroupSummary>` |
+| `Totals` | Які загальні підсумки: кількість замовлень, загальна сума, середній та максимальний чек? | `ToList` $\rightarrow$ `Count`, `Sum`, `Average`, `Max` | Іменований кортеж `(int, decimal, decimal, decimal)` |
+| `CustomerOrdersReport` | Зведений звіт по клієнтах: скільки замовлень оформив кожен клієнт і на яку суму? | `GroupJoin` $\rightarrow$ `Select` $\rightarrow$ `OrderByDescending` $\rightarrow$ `ThenBy` $\rightarrow$ `ToList` | `IReadOnlyList<CustomerOrdersSummary>` |
+
+### 3. Дослідження відкладеного виконання (Deferred Execution)
+
+У `Lab7Demo.cs` реалізовано практичний дослід відкладеного виконання запитів:
+```csharp
+var localSource = items.Take(5).ToList();
+var deferredQuery = localSource.Where(o => o.Total > 10000m); // Запит лише оголошено
+
+Console.WriteLine(deferredQuery.Count()); // 1) Перший виклик: результат = 3
+
+var newOrder = Order.Create("ORD-TMP-999", "CUST-999");
+newOrder.AddLine("P-001", "Ноутбук", 32500m, 1);
+localSource.Add(newOrder); // Зміна вихідного джерела даних
+
+Console.WriteLine(deferredQuery.Count()); // 2) Другий виклик: результат = 4
+
+var snapshot = deferredQuery.ToList(); // Матеріалізація (фіксація результату в пам'яті)
+localSource.Clear();                   // Очищення джерела
+Console.WriteLine(snapshot.Count);     // 3) У знімку залишилося = 4
+```
+
+**Пояснення результатів:**
+1. Рядок `localSource.Where(...)` **не виконує фільтрацію одразу** в момент створення, а лише будує дерево викликів ітератора (`IEnumerable<Order>`).
+2. Перший виклик `deferredQuery.Count()` змушує ітератор пройтися по колекції й повертає `3`.
+3. Після додавання нового замовлення в `localSource` повторний виклик `deferredQuery.Count()` повторно запускає обхід джерела, «бачить» щойно доданий елемент і повертає вже `4`. Це доводить, що запит обчислюється щоразу заново над актуальним станом колекції.
+4. Виклик `.ToList()` матеріалізує послідовність у новий список `snapshot`. Після цього очищення вихідного списку `localSource.Clear()` не впливає на зафіксований знімок — `snapshot.Count` стабільно дорівнює `4`.
+
+### 4. Обробка порожнього джерела (Zero-Elements Safety)
+Стандартні агрегатні функції LINQ `Average()` та `Max()` генерують фатальний виняток `InvalidOperationException` («Sequence contains no elements»), якщо колекція порожня.  
+У методі `ReportService.Totals` реалізовано перевірку:
+```csharp
+var list = source.ToList();
+return list.Count == 0
+    ? (0, 0m, 0m, 0m)
+    : (list.Count, list.Sum(o => o.Total), list.Average(o => o.Total), list.Max(o => o.Total));
+```
+При передачі `Enumerable.Empty<Order>()` метод повертає нульові значення без аварійного завершення програми.
+
+### 5. Додаткові завдання (Бонуси на максимальний бал)
+
+1. **`GroupJoin` двох колекцій (`CustomerOrdersReport`):**  
+   З'єднання колекцій `Customer` та `Order` за спільним полем `CustomerId`. Працює як LEFT OUTER JOIN у SQL: клієнти, які ще не зробили жодного замовлення, не губляться, а виводяться з показниками `0 замовлень | 0.00 грн`.
+2. **Власний метод-розширення `TopBy<T, TKey>` (`LinqExtensions.cs`):**  
+   Створено метод розширення для `IEnumerable<T>`, який інкапсулює шаблон `OrderByDescending(key).Take(count)`. Використано у двох незалежних аналітичних звітах: `TopOrdersByTotal` (топ замовлень) та `TopCustomersReport` (топ покупців).
+3. **Query Syntax (`from ... group ... into ...`):**  
+   Метод `ByStatusQuerySyntax` реалізує групування декларативним SQL-подібним синтаксисом C#:
+   ```csharp
+   var query = from o in source
+               group o by o.Status.ToString() into g
+               orderby g.Sum(x => x.Total) descending
+               select new GroupSummary(g.Key, g.Count(), g.Sum(x => x.Total));
+   ```
+   *Порівняння:* Query Syntax є більш наочним та читабельним для операцій із багатьма з'єднаннями та групуваннями (`into g`), тоді як Method Syntax краще підходить для послідовних лінійних конвеєрів (`Where -> Select -> Take`).
+4. **Бенчмарк `Stopwatch` на 100 000 замовлень (Streaming vs Intermediate `ToList`):**  
+   Порівняно час фільтрації та вибірки перших 10 замовлень на 100 000 згенерованих об'єктах:
+   * **Потоковий LINQ (без проміжного `ToList`):** `0.488 мс` (завдяки лінивому виконанню `Take(10)` зупиняє сканування одразу після знаходження 10 записів, не перебираючи решту 99 980 елементів);
+   * **З проміжним `ToList()` посередині конвеєра:** `33.289 мс` (змушений проітерувати всі 100 000 елементів, виділити пам'ять під новий список на ~95 000 об'єктів і навантажити Garbage Collector);
+   * **Висновок:** Потоковий конвеєр LINQ без передчасної матеріалізації працює у **~68.2x разів швидше**.
 
 ---
 
 ## Лабораторна робота №6: Доменні події, делегати Action/Func, лямбди
 
 ### 1. Мета та архітектурне призначення
-Реалізовано механізм сповіщення зовнішнього коду про зміну стану доменної моделі без створення зворотної залежності `Core` від деталей виведення (консолі, логерів, файлів).  
-`Core` виступає видавцем (Publisher), а `Cli` — підписником (Subscriber) у патерні **Observer**.
+Реалізовано механізм сповіщення зовнішнього коду про зміну стану доменної моделі без створення зворотної залежності `Core` від деталей виведення (консолі, логерів, файлів). `Core` виступає видавцем (Publisher), а `Cli` — підписником (Subscriber) у патерні **Observer**.
 
 ### 2. Опис доменних подій (`src/Core/Events`)
-* **`OrderChangeKind` (перелічення / enum):**
-  - `OrderCreated` — створено нове замовлення;
-  - `LineAdded` — додано товарну позицію;
-  - `OrderConfirmed` — замовлення переведено в підтверджений стан;
-  - `OrderCancelled` — замовлення скасовано.
-* **`OrderChangedEventArgs` (`EventArgs`):**
-  - Відповідає загальноприйнятим конвенціям .NET та успадкований від `System.EventArgs`.
-  - Властивості:
-    - `OrderId` (`string`) — ідентифікатор зміненого замовлення;
-    - `Kind` (`OrderChangeKind`) — тип події;
-    - `LinesCount` (`int`) — кількість позицій у замовленні на момент події;
-    - `Total` (`decimal`) — підсумкова вартість замовлення;
-    - `At` (`DateTimeOffset`) — точний момент створення аргументів (`DateTimeOffset.Now`).
+* **`OrderChangeKind` (enum):** `OrderCreated`, `LineAdded`, `OrderConfirmed`, `OrderCancelled`.
+* **`OrderChangedEventArgs` (`EventArgs`):** містить незмінний зліпок даних зміни: `OrderId`, `Kind`, `LinesCount`, `Total`, `At` (`DateTimeOffset.Now`).
 
 ### 3. Оголошення та підняття події в `OrderService`
-* Оголошення події на основі стандартного узагальненого делегата `EventHandler<T>`:
+* Оголошення події на базі стандартного делегата .NET `EventHandler<T>`:
   ```csharp
   public event EventHandler<OrderChangedEventArgs>? Changed;
   ```
@@ -149,40 +230,13 @@ CrossApp/
       _sink?.Notify($"Подія {kind} для замовлення #{order.Id} (сума: {order.Total:F2} грн)");
   }
   ```
-* **Захист інваріантів:** виклик `OnChanged` розташовано **суворо після** перевірки правил і збереження в `_store.Add()` / `_store.Update()`. Якщо операція викидає виняток (наприклад, замовлення не знайдено, або порушено правила переходу статусів), метод переривається, і подія **не надсилається**.
+* **Захист інваріантів:** виклик `OnChanged` розташовано **суворо після** збереження в `_store.Add()` / `_store.Update()`. Якщо операція викидає виняток, подія **не надсилається**.
 
-### 4. Підписники, замикання та відписка в `Program.cs`
-1. **Підписник №1 (іменований локальний метод `OnOrderChanged`)**:
-   - Має стале посилання для забезпечення можливості подальшої відписки через `-=`.
-   - Виводить форматований рядок у консоль і дописує його у `logs/app.log`.
-   - Захищений внутрішнім блоком `try/catch`, щоб помилка логера не порушувала бізнес-транзакцію.
-2. **Підписник №2 (анонімна лямбда із замиканням)**:
-   - `int changes = 0; service.Changed += (_, _) => changes++;`
-   - Утворює замикання (closure) над локальною змінною `changes`.
-   - Застосовує відкидання параметрів `(_, _)`, оскільки тілу не потрібні `sender` та `e`.
-3. **Керована відписка (`-=`)**:
-   - `service.Changed -= OnOrderChanged;` успішно відписує логер. Наступні операції не продукують виведення в консоль і файл, але лічильник подій від другого підписника продовжує зростати.
-4. **Сценарій відмови (порушення інваріантів)**:
-   - Спроба підтвердити неіснуюче замовлення `service.Confirm("ORD-NOT-FOUND")` перехоплюється блоком `try/catch`. Подія не піднімається, лічильник подій залишається незмінним.
-5. **Делегат `Func` замість події**:
-   - Для синхронного отримання відфільтрованих даних реалізовано метод:
-     `public IReadOnlyList<Order> FindAll(Func<Order, bool> predicate)`
-   - Виклик у CLI: `service.FindAll(o => o.IsConfirmed)`.
-
-### 5. Додаткові завдання Лабораторної №6
-1. **Приймач сповіщень `INotificationSink` (ручний DI проти подій)**:
-   - Оголошено контракт `Core.Abstractions.INotificationSink`.
-   - Реалізовано `ConsoleSink` та `FileSink` у шарі CLI (`src/Cli/Notifications/NotificationSinks.cs`).
-   - Передається в `OrderService` через конструктор:
-     `public sealed class OrderService(IOrderStore store, INotificationSink? notificationSink = null)`
-   - *Порівняння у звіті*: DI через `INotificationSink` задає статичний контракт "один-до-одного", що вимагає композиту для кількох приймачів; подія `event` реалізує патерн Observer "один-до-багатьох" з динамічною підпискою та відпискою під час виконання.
-2. **Делегат `Action<string>` у методі імпорту**:
-   - Метод `ProductCsvImporter.Load(path, onSkippedRow: err => ...)` приймає необов'язковий зворотний виклик (callback).
-   - При виявленні пошкодженого рядка сповіщення надсилається миттєво безпосередньо під час парсингу без очікування завершення читання всього файлу.
-3. **Теоретичний аналіз `async void` в обробниках подій**:
-   - `EventHandler<T>` повертає `void`, що змушує писати `async void` для асинхронних операцій у підписнику;
-   - Небезпека: виняток всередині `async void` не може бути перехоплений зовнішнім `try/catch` навколо `Invoke` і призводить до фатального падіння процесу (`AppCrash`); джерело події не може дочекатися завершення асинхронного завдання (`await`).
-   - Правило надійності: весь вміст `async void` обробника зобов'язаний бути обгорнутий усередині у власний блок `try/catch`.
+### 4. Підписники, замикання та відписка в `Cli`
+1. **Підписник №1 (іменований метод `OnOrderChanged`)**: виводить форматований рядок у консоль і дописує його у `logs/app.log`.
+2. **Підписник №2 (лямбда із замиканням)**: `service.Changed += (_, _) => changes++;` (рахує кількість подій через замикання над змінною `changes`).
+3. **Керована відписка (`-=`)**: `service.Changed -= OnOrderChanged;` успішно відписує логер. Подальші операції не пишуться в консоль і файл, але лічильник подій від другого підписника продовжує зростати.
+4. **Сценарій відмови**: помилка при спробі підтвердити неіснуюче замовлення перехоплюється `try/catch`. Подія не піднімається, лічильник не змінюється.
 
 ---
 
@@ -190,203 +244,53 @@ CrossApp/
 
 ### 1. Домен, агрегат та інтерфейс сховища
 - **Предметна область**: Замовлення (`Order`, `OrderLine`, `Customer`, `Product`).
-- **Корінь агрегату**: `Order`. Замовлення зберігається та завантажується разом з усіма своїми рядками `OrderLine` як єдине неподільне ціле.
-- **Контракт сховища (`IOrderStore`)**: розташований у `src/Core/Abstractions/IOrderStore.cs`:
-  ```csharp
-  namespace Core.Abstractions;
-
-  public interface IOrderStore
-  {
-      IReadOnlyList<Order> List();
-      Order? GetById(string id);
-      IReadOnlyList<Order> Find(Func<Order, bool> predicate);
-      void Add(Order item);
-      void Update(Order item);
-      bool Remove(string id);
-  }
-  ```
-  * `IReadOnlyList<Order> List()` — повертає доступну лише для читання колекцію, щоб зовнішній клієнтський код не міг мутувати внутрішній стан сховища в обхід методів `Add`/`Update`/`Remove`.
-  * `Order? GetById(string id)` — повертає nullable тип `Order?`, оскільки запису з таким ідентифікатором може не існувати (нормальний результат пошуку, а не збій).
-  * `IReadOnlyList<Order> Find(Func<Order, bool> predicate)` — гнучка фільтрація за довільною предикатною умовою (підготовка до LINQ).
-  * `void Add(Order item)` — валідує аргумент (`ArgumentNullException.ThrowIfNull`) та контролює унікальність `Id` у колекції (`ContainsKey` $\rightarrow$ `InvalidOperationException`).
-  * `void Update(Order item)` — оновлює стан збереженого агрегату.
-  * `bool Remove(string id)` — видаляє замовлення за `id`.
-
----
+- **Корінь агрегату**: `Order`.
+- **Контракт сховища (`IOrderStore`)**: `List()`, `GetById(id)`, `Find(predicate)`, `Add(item)`, `Update(item)`, `Remove(id)`.
 
 ### 2. Реалізації сховища
-1. **`InMemoryOrderStore` (у пам'яті):**
-   - Працює на базі `Dictionary<string, Order>` з нечутливим до регістру порівнянням ключів `StringComparer.OrdinalIgnoreCase`.
-   - Приймає початкові дані через первинний конструктор: `public sealed class InMemoryOrderStore(IEnumerable<Order>? seed = null) : IOrderStore`.
-   - Заповнюється валідними зразками через `SampleData.Orders()`. Дані існують лише під час виконання процесу.
-2. **`FileOrderStore` (файлове сховище JSON):**
-   - Шлях збереження: `data/orders.json` (відносний через `AppContext.BaseDirectory`).
-   - Кеш у пам'яті: приватний словник `_cache` забезпечує миттєвий доступ до замовлень.
-   - Ліниве завантаження (`EnsureLoaded()`): зчитує `orders.json` лише при першому зверненні, відновлюючи доменні агрегати через DTO-мапінг `Order.FromDto(dto)`.
-   - Синхронізація на диск (`Flush()`): автоматично викликається після кожної зміни (`Add`, `Update`, `Remove`), створює директорію за потреби (`Directory.CreateDirectory`) та записує відформатований JSON (`WriteIndented = true`, `JavaScriptEncoder.UnsafeRelaxedJsonEscaping` для чистого UTF-8 тексту кирилиці).
-3. **`CachingOrderStore` (декоратор кешування — Додаткове завдання 1):**
-   - Реалізує патерн **Decorator** (GoF): приймає `IOrderStore inner` у конструкторі, надає той самий контракт `IOrderStore`, але прозоро кешує запити `GetById` / `Find` та веде підрахунок метрик `CacheHits` і `CacheMisses`. Демонструє принцип Open/Closed (OCP).
-4. **`OrderStoreFactory` (фабрика сховищ — Додаткове завдання 3):**
-   - Патерн **Simple Factory**: інкапсулює правила створення сховища залежно від прапорців CLI (`--file`, `--cached`).
-
----
-
-### 3. Схема залежностей та архітектура
-Застосовано принцип інверсії залежностей (**Dependency Inversion Principle, DIP**): модулі вищого рівня (`OrderService`) та деталі нижчого рівня (`InMemoryOrderStore`, `FileOrderStore`) залежать від абстракції (`IOrderStore`).
-
-```text
-       ┌──────────────┐
-       │   src/Cli    │  (Composition Root: розбір аргументів, OrderStoreFactory)
-       └──────┬───────┘
-              │ створює та передає через new
-              ▼
-    ┌──────────────────┐       викликає        ┌──────────────────┐
-    │   OrderService   ├──────────────────────►│   IOrderStore    │ (Abstractions)
-    └──────────────────┘                       └────────▲─────────┘
-                                                        │
-                      ┌─────────────────────────────────┼─────────────────────────────────┐
-                      │ реалізує                        │ реалізує                        │ реалізує (Decorator)
-             ┌────────┴───────────┐           ┌─────────┴─────────┐           ┌───────────┴────────────┐
-             │ InMemoryOrderStore │           │  FileOrderStore   │           │    CachingOrderStore   │
-             └────────────────────┘           └───────────────────┘           └────────────────────────┘
-```
-
-`OrderService` не має жодної залежності від `Core.Storage` чи `FileOrderStore`, його єдина залежність — інтерфейс `IOrderStore`.
-
----
-
-### 4. Доменний сервіс `OrderService`
-Сервіс виконує прикладні операції над замовленнями:
-* `CreateOrder(customerId)` — створення замовлення з автоматичною генерацією унікального `Id` (`Guid.NewGuid().ToString("N")[..8]`);
-* `AddLine(orderId, productId, name, price, quantity)` — отримання замовлення через `_store.GetById(id) ?? throw`, додавання рядка з перевіркою інваріантів сутності, фіксація через `_store.Update(order)`;
-* `Confirm(orderId)` — валідація наявності та переведення статусу у `Confirmed` через `order.Confirm()`, збереження в сховищі;
-* `Cancel(orderId)` — скасування замовлення за правилами переходів станів;
-* `All()` та `Find(id)` / `Find(predicate)` — отримання та гнучкий пошук замовлень.
-
----
-
-### 5. Composition Root у `Program.cs`
-Ручне впровадження залежностей (Manual / Pure DI) без використання сторонніх DI-контейнерів:
-```csharp
-// Cli/Program.cs
-bool useFile = args.Contains("--file");
-bool useCache = args.Contains("--cached");
-string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
-
-IOrderStore store = OrderStoreFactory.Create(args, dataPath);
-var service = new OrderService(store);
-```
-
----
-
-### 6. Сценарії відмови (Error Handling)
-Усі помилки перехоплюються на рівні CLI за допомогою блоків `try/catch` без стек-трейсу та аварійного завершення програми:
-* **Спроба додати замовлення з дублікатом `Id`** $\rightarrow$ `[InvalidOperationException]: Замовлення з id='...' уже існує.`
-* **Звернення до неіснуючого замовлення (`AddLine` / `Confirm`)** $\rightarrow$ `[InvalidOperationException]: Немає замовлення з id='ORD-NON-EXISTENT'.`
-* **Порушення бізнес-інваріантів (додавання у підтверджене замовлення)** $\rightarrow$ `[InvalidOperationException]: Не можна додавати рядки до замовлення зі статусом 'Confirmed'.`
-
----
-
-### 7. Додаткові завдання Лабораторної №5
-1. **Декоратор `CachingOrderStore`**: реалізує `IOrderStore`, огортає внутрішнє сховище `inner`, додає in-memory кеш та збір статистики звернень (перший виклик `Misses = 1, Hits = 0`, повторний `Misses = 1, Hits = 1`).
-2. **Пошук за предикатом `Func<Order, bool>`**: підтримка фільтрації замовлень у `IOrderStore` та `OrderService` (наприклад, пошук усіх підтверджених замовлень на суму $> 30\,000$ грн).
-3. **Фабрика `OrderStoreFactory` та аналіз підходів**:
-   * *Варіант «усе в Program.cs»*: лаконічний для найпростіших утиліт, але змішує консольний інтерфейс зі створенням об'єктів.
-   * *Варіант `OrderStoreFactory`*: дотримується Single Responsibility Principle (SRP), інкапсулює розбір прапорців (`--file`, `--cached`) і логіку конфігурації сховищ, дозволяє легко писати тести на створення компонентів.
+1. **`InMemoryOrderStore` (у пам'яті):** на базі `Dictionary<string, Order>` з нечутливим до регістру порівнянням `OrdinalIgnoreCase`. Початкові дані — `SampleData.Orders()`.
+2. **`FileOrderStore` (файлове сховище JSON):** збереження у `data/orders.json`, in-memory кеш `_cache`, ліниве завантаження `EnsureLoaded()` та скидання на диск через `Flush()`.
+3. **`CachingOrderStore` (декоратор кешування):** патерн Decorator, кешує запити, підраховує `CacheHits` та `CacheMisses`.
+4. **`OrderStoreFactory` (фабрика сховищ):** патерн Simple Factory, інкапсулює правила створення залежно від аргументів CLI (`--file`, `--cached`).
 
 ---
 
 ## Лабораторна робота №4: Доменна модель, інваріанти та інкапсуляція
 
 ### Сутності та Агрегат
-- `Order` — корінь агрегату (Aggregate Root). Керує власними рядками та життєвим циклом (`OrderStatus`: `Draft`, `Confirmed`, `Cancelled`), обчислює загальну суму `Total`. Внутрішній список рядків `_lines` повністю інкапсульовано і видається назовні лише як `IReadOnlyList<OrderLine> Lines => _lines.AsReadOnly()`.
-- `OrderLine` — рядок замовлення (ідентифікатор товару, назва, ціна, кількість $> 0$, підсумок рядка `LineTotal = Price * Quantity`).
-- `Product` — сутність товару з методами `UpdatePrice`, `Rename`, а також мапінгом `ToDto()` та `FromDto(ProductDto dto)`.
-- `Customer` — сутність клієнта з перевіркою коректності email.
+- `Order` — корінь агрегату. Керує списком `_lines` (`IReadOnlyList<OrderLine>`), статусом `OrderStatus` (`Draft`, `Confirmed`, `Cancelled`) та загальною сумою `Total`.
+- `OrderLine` — рядок замовлення (ціна $\ge 0$, кількість $> 0$).
+- `Product` — товар каталогу з методами оновлення цін і мапінгом DTO.
+- `Customer` — сутність замовника з перевіркою валідності email.
 
-Усі сутності спроєктовано за принципами **Rich Domain Model**: вони мають **приватні конструктори** та створюються виключно через статичні фабричні методи `Create(...)`. Стан змінюється лише через бізнес-методи (відсутні публічні сетери).
+Усі сутності спроєктовано за принципами **Rich Domain Model** із приватними конструкторами та фабричними методами `Create(...)`.
 
 ### Таблиця інваріантів та винятків
 
-| Сутність / Метод | Інваріант (Бізнес-правило) | Тип винятку | Обґрунтування вибору винятку |
-|---|---|---|---|
-| `Order.Create` | Ідентифікатори `Id` та `CustomerId` не можуть бути порожніми | `ArgumentException` | Некоректні вхідні аргументи фабричного методу |
-| `OrderLine.Create` | Ідентифікатор товару та назва обов'язкові | `ArgumentException` | Некоректні вхідні рядкові аргументи |
-| `OrderLine.Create` | Ціна не може бути від'ємною ($Price \ge 0$) | `ArgumentOutOfRangeException` | Числове значення виходить за межі допустимого діапазону |
-| `OrderLine.Create` | Кількість має бути більшою за нуль ($Quantity > 0$) | `ArgumentOutOfRangeException` | Неприпустиме значення кількості товару |
-| `Order.AddLine` | Додавання рядків дозволено лише у статусі `Draft` | `InvalidOperationException` | Операція заборонена для поточного стану замовлення |
-| `Order.Confirm` | Замовлення не може бути підтверджено без позицій (порожнім) | `InvalidOperationException` | Стан об'єкта не відповідає вимогам підтвердження |
-| `Order.Confirm` | Підтвердження можливе тільки зі статусу `Draft` | `InvalidOperationException` | Заборона повторного або некоректного переходу стану |
-| `Order.Cancel` | Заборонено скасовувати вже підтверджене замовлення | `InvalidOperationException` | Захист незворотності підтвердженого замовлення |
-| `Product.UpdatePrice` | Нова ціна товару не може бути від'ємною ($Price \ge 0$) | `ArgumentOutOfRangeException` | Некоректне значення для оновлення ціни |
-| `Customer.Create` | Email клієнта має містити символ `@` та бути непорожнім | `ArgumentException` | Порушення синтаксичного формату електронної пошти |
-
-### Додаткові завдання Лабораторної №4
-
-1. **Зв'язок із 3 тижнем (`Product.FromDtos`):** метод приймає `ImportResult<ProductDto>` і повертає `DomainImportResult<Product>`, розділяючи валідні сутності та виявлені порушення інваріантів («дані + помилки»).
-2. **Інваріант двох сутностей (`OrderLimitService`):** правило «не більше 3 активних замовлень на одного клієнта». Винесено в Доменний Сервіс, оскільки окремі сутності не повинні мати доступу до всієї колекції замовлень системи (дотримання принципу Single Responsibility та підготовка до патерну Repository на 5 тижні).
-3. **Перевірка переходів станів через `switch expression`:** метод `Order.CanTransition(current, next)` перевіряє допустимість зміни стану замовлення за допомогою pattern matching на кортежах.
+| Сутність / Метод | Інваріант (Бізнес-правило) | Тип винятку |
+|---|---|---|
+| `Order.Create` | Ідентифікатори `Id` та `CustomerId` обов'язкові | `ArgumentException` |
+| `OrderLine.Create` | Ціна не може бути від'ємною ($Price \ge 0$) | `ArgumentOutOfRangeException` |
+| `OrderLine.Create` | Кількість має бути більшою за нуль ($Quantity > 0$) | `ArgumentOutOfRangeException` |
+| `Order.AddLine` | Додавання рядків дозволено лише у статусі `Draft` | `InvalidOperationException` |
+| `Order.Confirm` | Заборонено підтверджувати порожнє замовлення | `InvalidOperationException` |
+| `Order.Cancel` | Заборонено скасовувати вже підтверджене замовлення | `InvalidOperationException` |
 
 ---
 
 ## Лабораторна робота №3: Імпорт даних та DTO
 
-### Формат файлів даних
-- **Роздільник**: `;` (крапка з комою, щоб уникнути конфліктів із комами в назвах).
-- **Кодування**: `UTF-8` (забезпечує крос-платформність кирилиці).
-- **Парсинг чисел**: `CultureInfo.InvariantCulture` (запобігає помилкам парсингу десяткової крапки `32500.00` на локалях із комою).
-
-### Pattern Matching у розборі CSV (`switch expression`)
-Розбір рядка реалізовано в `src/Core/Import/ProductCsvImporter.cs` через `switch expression` з використанням наступних видів патернів:
-1. **Патерн властивостей та реляційний патерн**: `{ Length: < 3 } => ...`
-2. **Патерни списків та константний патерн**: `["", _, ..] or [_, "", ..] => ...` (відсіювання порожніх обов'язкових полів).
-3. **Патерн списку з охоронною умовою `when`**: `[_, _, var priceStr, ..] when !decimal.TryParse(...) => ...`
-4. **Патерни списків для успішного розбору**: `[var id, var name, var priceStr]` або `[var id, var name, var priceStr, var category]`.
-5. **Discard (універсальна гілка)**: `_ => ...`
+- **Формат файлів**: CSV (роздільник `;`, UTF-8, `CultureInfo.InvariantCulture`) та JSON.
+- **Pattern Matching у розборі рядка**: використання `switch expression` із патернами списків `["", _, ..]`, реляційними перевірками `{ Length: < 3 }` та охоронними умовами `when`.
+- **Різнорідний імпорт**: автоматичне розпізнавання товарів (`P;...`) та клієнтів (`C;...`) у файлі `data/mixed.csv`.
 
 ---
 
-## Додаткові завдання Лабораторної №3
+## Лабораторні роботи №1–2: Налаштування середовища, Core + Cli, публікація
 
-### 1. JSON-імпортер (`ProductJsonImporter`)
-- Реалізовано імпорт товарів із файлів `.json` через `System.Text.Json` на базі тих самих типів `ProductDto`.
-- Застосунок у `Program.cs` автоматично обирає відповідний імпортер (`.csv` чи `.json`) за розширенням файлу через `switch expression`.
-
-### 2. Різнорідний імпорт (`OrderDataImporter`)
-- Підтримка обробки файлів змішаного типу (`data/mixed.csv`) за префіксами рядка в єдиному `switch`:
-  - `"P;..."` — розпізнається як товар (`ProductDto`).
-  - `"C;..."` — розпізнається як клієнт (`CustomerDto`).
-- `Program.cs` використовує pattern matching для диференційованого виводу:
-  `item switch { ProductDto p => ..., CustomerDto c => ... }`.
-
-### 3. Підсумкова статистика імпорту
-- Наприкінці роботи програма виводить статистику одним рядком:
-  ```text
-  Статистика імпорту: усього 13 | прийнято 10 | пропущено 3 | помилок 23,1%
-  ```
-
----
-
-## Публікація (з Лабораторної №2)
-
-```bash
-# Framework-dependent (потрібен встановлений .NET 10 Runtime)
-dotnet publish src/Cli -c Release -f net10.0 -r win-x64 --self-contained false -o dist/fdd-win
-
-# Self-contained (автономний, завантажує runtime у пакет)
-dotnet publish src/Cli -c Release -f net10.0 -r win-x64 --self-contained true -o dist/scd-win
-dotnet publish src/Cli -c Release -f net10.0 -r linux-x64 --self-contained true -o dist/scd-linux
-
-# Single-File + Trimmed (максимальна оптимізація в один файл)
-dotnet publish src/Cli -c Release -f net10.0 -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true -o dist/single-trimmed-win
-```
-
-### Порівняння результатів публікації
-
-| RID | Режим | К-ть файлів | Розмір | Потрібен runtime |
-|---|---|---|---|---|
-| `win-x64` | framework-dependent | 7 | 0.2 МБ | так (.NET 10) |
-| `win-x64` | self-contained | 194 | 76.7 МБ | ні |
-| `linux-x64` | self-contained | 194 | 78.8 МБ | ні |
-| `win-x64` | self-contained + single-file | 1 | 70.1 МБ | ні |
-| `win-x64` | self-contained + single-file + trimmed | 1 | 12.3 МБ | ні (економія 84%) |
+- **Архітектура**: розділення на незалежну бібліотеку `src/Core` та консольний клієнт `src/Cli`.
+- **Multi-targeting**: одночасна підтримка `net8.0` та `net10.0` у бібліотеці `Core.csproj`.
+- **Публікація**:
+  - `Framework-dependent (FDD)`: малий розмір (~0.2 МБ), вимагає встановленого runtime.
+  - `Self-contained (SCD)`: автономний виконуваний пакет під RID `win-x64` (~76.7 МБ).
+  - `SCD + Single-file + Trimmed`: монолітний оптимізований файл (~12.3 МБ, економія 84%).
