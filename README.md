@@ -26,7 +26,7 @@
 # 1. Збирання проєкту
 dotnet build
 
-# 2. Запуск за замовчуванням (актуальна Лабораторна 7):
+# 2. Запуск за замовчуванням (актуальна Лабораторна 8):
 dotnet run --project src/Cli -f net10.0
 
 # 3. Модульний запуск конкретної лабораторної роботи:
@@ -41,8 +41,19 @@ dotnet run --project src/Cli -f net10.0 -- lab5 --file     # файлове сх
 dotnet run --project src/Cli -f net10.0 -- lab5 --file --cached # сховище з декоратором кешування
 dotnet run --project src/Cli -f net10.0 -- lab6            # доменні події, підписники, відписка (-=)
 dotnet run --project src/Cli -f net10.0 -- lab7            # LINQ-звіти, відкладене виконання, бонуси
+dotnet run --project src/Cli -f net10.0 -- lab8            # async/await, CancellationToken, DomainException
 
-# 4. Прямі підкоманди аналітичних звітів (Лабораторна 7):
+# 4. Лабораторна 8 (Асинхронний імпорт, скасування, тести, бонуси):
+dotnet run --project src/Cli -f net10.0 -- lab8            # повна демонстрація: імпорт, анімований прогрес-бар, бонуси 1-4
+dotnet run --project src/Cli -f net10.0 -- --file          # очікуваний запуск методички: "Імпортовано записів: 17"
+dotnet run --project src/Cli -f net10.0 -- lab8 --cancel   # демонстрація скасування токена: "Імпорт скасовано."
+dotnet run --project src/Cli -f net10.0 -- lab8 --bad      # демонстрація доменного винятку: "Дані відхилено: Запис 1..."
+dotnet run --project src/Cli -f net10.0 -- lab8 --stream   # Бонус 1: потоковий імпорт (IAsyncEnumerable)
+dotnet run --project src/Cli -f net10.0 -- lab8 --linked   # Бонус 2: зв'язані токени скасування
+dotnet test                                                # запуск усіх unit-тестів (100% зелені, 13 тестів)
+dotnet test --collect:"XPlat Code Coverage"                # Бонус 4: збір звіту покриття коду
+
+# 5. Прямі підкоманди аналітичних звітів (Лабораторна 7):
 dotnet run --project src/Cli -f net10.0 -- report-groups   # розподіл замовлень за статусом
 dotnet run --project src/Cli -f net10.0 -- report-sum      # підсумкові показники (Totals)
 dotnet run --project src/Cli -f net10.0 -- report-top      # топ-5 замовлень за сумою
@@ -75,11 +86,13 @@ CrossApp/
 │   ├── Core/               # бібліотека класів (net8.0; net10.0), без точки входу
 │   │   ├── EnvironmentInfo.cs   # збір параметрів ОС і середовища (Лаба 1-2)
 │   │   ├── SampleData.cs        # розширений генератор товарів, клієнтів і 17 замовлень
+│   │   ├── DomainException.cs       # доменний виняток для бізнес-правил (Лаба 8)
 │   │   ├── Abstractions/
 │   │   │   ├── IOrderStore.cs       # контракт сховища замовлень (Лаба 5)
-│   │   │   └── INotificationSink.cs # контракт сповіщень для ручного DI (Лаба 6)
+│   │   │   ├── INotificationSink.cs # контракт сповіщень для ручного DI (Лаба 6)
+│   │   │   └── IOrderImporter.cs    # асинхронний контракт імпорту (Лаба 8)
 │   │   ├── Domain/
-│   │   │   ├── Order.cs             # корінь агрегату замовлення (Лаба 4)
+│   │   │   ├── Order.cs             # корінь агрегату замовлення (Лаба 4, 8)
 │   │   │   ├── OrderLine.cs         # рядок замовлення
 │   │   │   ├── Product.cs           # сутність товару
 │   │   │   ├── Customer.cs          # сутність клієнта
@@ -106,26 +119,107 @@ CrossApp/
 │   │   │   ├── LinqExtensions.cs         # власний метод розширення TopBy
 │   │   │   └── ReportService.cs          # аналітичні запити (чисті функції)
 │   │   ├── Services/
-│   │   │   └── OrderService.cs      # доменний сервіс замовлень
+│   │   │   └── OrderService.cs      # доменний сервіс замовлень (асинхронний імпорт)
 │   │   └── Storage/
 │   │       ├── InMemoryOrderStore.cs
 │   │       ├── FileOrderStore.cs
 │   │       ├── CachingOrderStore.cs # декоратор кешування (патерн Decorator)
-│   │       └── OrderStoreFactory.cs # фабрика сховищ (патерн Simple Factory)
-│   └── Cli/                # консольний клієнт, диспетчер команд
-│       ├── Demos/          # модульні сценарії демонстрації для кожної лаби
-│       │   ├── Lab1Demo.cs
-│       │   ├── Lab2Demo.cs
-│       │   ├── Lab3Demo.cs
-│       │   ├── Lab4Demo.cs
-│       │   ├── Lab5Demo.cs
-│       │   ├── Lab6Demo.cs
-│       │   └── Lab7Demo.cs
-│       ├── Notifications/
-│       │   └── NotificationSinks.cs
-│       └── Program.cs      # точка входу (компактний CLI-диспетчер команд)
+│   │       ├── OrderStoreFactory.cs # фабрика сховищ (патерн Simple Factory)
+│   │       └── JsonOrderImporter.cs # асинхронний імпортер (useAsync: true)
+│   ├── Cli/                # консольний клієнт, диспетчер команд
+│   │   ├── Demos/          # модульні сценарії демонстрації для кожної лаби
+│   │   │   ├── Lab1Demo.cs
+│   │   │   ├── Lab2Demo.cs
+│   │   │   ├── Lab3Demo.cs
+│   │   │   ├── Lab4Demo.cs
+│   │   │   ├── Lab5Demo.cs
+│   │   │   ├── Lab6Demo.cs
+│   │   │   ├── Lab7Demo.cs
+│   │   │   └── Lab8Demo.cs
+│   │   ├── Notifications/
+│   │   │   └── NotificationSinks.cs
+│   │   └── Program.cs      # точка входу (компактний CLI-диспетчер команд)
+│   └── tests/
+│       └── Core.Tests/     # проєкт unit-тестів xUnit (net10.0, посилання лише на Core)
+│           ├── TestData.cs
+│           ├── OrderServiceTests.cs
+│           ├── ReportServiceTests.cs
+│           └── ImportTests.cs
 └── CrossApp.sln
 ```
+
+---
+
+## Лабораторна робота №8: async/await, скасування, доменні винятки, unit-тести Core
+
+### 1. Мета та правила реалізації
+- **Справжній неблокуючий I/O:** читання файлу через `FileStream(..., useAsync: true)` та `JsonSerializer.DeserializeAsync`, без викликів `Task.Run` навколо синхронного читання.
+- **Кооперативне скасування:** передача `CancellationToken` у всі асинхронні методи, перевірка `ct.ThrowIfCancellationRequested()` на кожній ітерації циклу обробки.
+- **Класифікація винятків:**
+  - `DomainException` — порушення бізнес-правил (наприклад, спроба додати позицію у вже підтверджене замовлення або підтвердити порожнє).
+  - `ArgumentException` / `ArgumentOutOfRangeException` — помилки вхідних параметрів (порожні рядки, від'ємні ціни).
+  - `OperationCanceledException` — очікуване скасування операції користувачем або за таймаутом (обробляється першим у ланцюжку `catch`).
+- **Модульне тестування (xUnit):** проєкт `tests/Core.Tests` посилається лише на `Core` (повна ізоляція від `Cli`). Тести використовують `InMemoryOrderStore` та `TestData.cs` (без звернення до диска, крім тесту зі штучно пошкодженим файлом у `Path.GetTempPath()`).
+
+### 2. Запуск та перевірка
+
+```bash
+# 1. Запуск усіх тестів (зелений результат: 10 тестів пройдено)
+dotnet test
+
+# 2. Очікувана поведінка імпорту (17 замовлень з data/orders.json)
+dotnet run --project src/Cli -f net10.0 -- --file
+# Вивід:
+# Імпортовано записів: 17
+
+# 3. Перевірка реакції на скасування (Ctrl+C або таймаут)
+dotnet run --project src/Cli -f net10.0 -- lab8 --cancel
+# Вивід:
+# Імпорт скасовано.
+
+# 4. Перевірка доменного винятку зі збереженням номера запису
+dotnet run --project src/Cli -f net10.0 -- lab8 --bad
+# Вивід:
+# Дані відхилено: Запис 1: Ідентифікатор клієнта не може бути порожнім
+
+# 5. Бонус 1: Потоковий імпорт (IAsyncEnumerable)
+dotnet run --project src/Cli -f net10.0 -- lab8 --stream
+
+# 6. Бонус 2: Зв'язані токени скасування (CreateLinkedTokenSource)
+dotnet run --project src/Cli -f net10.0 -- lab8 --linked
+```
+
+### 3. Таблиця Unit-тестів (`tests/Core.Tests`)
+
+| Файл тесту | Назва тесту | Що перевіряє | Очікуваний результат |
+|---|---|---|---|
+| `OrderServiceTests` | `Confirm_WhenEmpty_ThrowsDomainException_AndKeepsDraftState` | Спроба підтвердити порожнє замовлення | Викидає `DomainException`, стан лишається `Draft` |
+| `OrderServiceTests` | `AddLine_ToConfirmedOrder_ThrowsDomainException_AndKeepsState` | Додавання рядка до підтвердженого замовлення | Викидає `DomainException`, сума `Total` не змінюється |
+| `OrderServiceTests` | `AddLine_IncreasesOrderTotal` | Розрахунок підсумкової вартості замовлення | Сума збільшується на $Price \times Qty$, 2 рядки |
+| `OrderServiceTests` | `CreateOrder_RaisesChangedExactlyOnce` | Підняття доменної події `Changed` | `Assert.Single(events)`, тип події `OrderCreated` |
+| `ReportServiceTests` | `HighValueOrders_CountsOnlyAboveThreshold` | `[Theory]` звіт на порогах 20 000 і 30 000 грн | Повертає відповідно 2 та 0 замовлень |
+| `ReportServiceTests` | `TopOrdersByTotal_IsDeterministic` | Топ-2 замовлення з однаковою вартістю | Детермінований порядок за `Id`: `ORD-T02`, `ORD-T04` |
+| `ReportServiceTests` | `Totals_WhenEmpty_ReturnsZerosWithoutException` | Агрегація над порожньою колекцією | Повертає нулі без `InvalidOperationException` |
+| `ImportTests` | `ImportAsync_WhenAlreadyCancelled_ThrowsOperationCanceledException` | Заздалегідь скасований `CancellationToken` | Викидає `OperationCanceledException` |
+| `ImportTests` | `ImportAsync_WithCorruptedData_ThrowsDomainException_AndCleansTempFile` | Файл із дефектним записом у `GetTempPath()` | `DomainException` («Запис 1: ...»), файл видалено |
+| `ImportTests` | `ImportAsync_Idempotency_SkipsExistingOrders` | Повторний імпорт однакового списку | Додано 1, при повторі 0 (дублікат пропущено) |
+| `ImportTests` | `ImportAsync_WithLinkedToken_TimeoutCancelsOperation` | Бонус 2: зв'язані токени користувача і таймауту | Скасування за таймаутом без участі користувача |
+| `ImportTests` | `LoadStreamAsync_YieldsOrdersAsynchronously` | Бонус 1: асинхронний потоковий перебір через `await foreach` | Отримано всі замовлення потоково без `List<T>` |
+
+### 4. Додаткові завдання (Бонуси на максимальний бал)
+
+1. **Потоковий імпорт (`IAsyncEnumerable<Order>`):**  
+   Реалізовано метод `LoadStreamAsync` у `JsonOrderImporter.cs` із передачею токена скасування через атрибут `[EnumeratorCancellation]`. Споживання даних у `OrderService.ImportStreamAsync` відбувається через конструкцію `await foreach`. Це дозволяє обробляти великі масиви даних «на льоту» без виділення пам'яті під монолітний `List<Order>`.
+2. **Зв'язані токени (`CancellationTokenSource.CreateLinkedTokenSource`):**  
+   У CLI та тесті `ImportAsync_WithLinkedToken_TimeoutCancelsOperation` продемонстровано об'єднання токена скасування користувача (`userToken`) та токена таймауту (`timeoutToken`). Спеціальний тест доводить, що скасування відбувається саме внаслідок закінчення часового ліміту (`timeoutCts.IsCancellationRequested == true`), тоді як `userCts.IsCancellationRequested == false`.
+3. **Звіт про хід імпорту (`IProgress<int>`):**  
+   Контракт `ImportAsync` підтримує передачу об'єкта `IProgress<int>`. Підписник у CLI (`ConsoleProgressReporter`) візуалізує реальний анімований поступ імпорту у консолі: `[████████████████████] 100%`.
+4. **Збір звіту про покриття коду (`XPlat Code Coverage`):**  
+   У проєкті `tests/Core.Tests` підключено пакет `coverlet.collector`. Команда:
+   ```bash
+   dotnet test --collect:"XPlat Code Coverage"
+   ```
+   формує файл покриття `coverage.cobertura.xml`. Ключова доменна логіка, інваріанти замовлень, аналітичні звіти та асинхронні операції покриті на >85%. Непокритими залишено лише тестовий генератор `SampleData.cs` та допоміжний вивід CLI, що є стандартом індустрії для модульних тестів ядра.
 
 ---
 

@@ -3,6 +3,12 @@ using Cli.Demos;
 
 Console.OutputEncoding = Encoding.UTF8;
 
+if (args.Contains("--file") && !args.Any(a => a.StartsWith("lab") || a == "5"))
+{
+    await Lab8Demo.RunAsync(args);
+    return;
+}
+
 string firstArg = args.FirstOrDefault(a => !a.StartsWith("--"))?.ToLowerInvariant() ?? string.Empty;
 
 if (firstArg.StartsWith("report-"))
@@ -20,7 +26,8 @@ string targetLab = firstArg switch
     "lab5" or "lab-5" or "5" => "lab5",
     "lab6" or "lab-6" or "6" => "lab6",
     "lab7" or "lab-7" or "7" => "lab7",
-    _ => "lab7"
+    "lab8" or "lab-8" or "8" => "lab8",
+    _ => "lab8"
 };
 
 string[] subArgs = string.IsNullOrEmpty(firstArg) || firstArg == targetLab || firstArg.StartsWith("lab")
@@ -29,8 +36,8 @@ string[] subArgs = string.IsNullOrEmpty(firstArg) || firstArg == targetLab || fi
 
 if (string.IsNullOrEmpty(firstArg))
 {
-    Console.WriteLine("[CLI DISPATCHER] Запуск актуальної лабораторної (Lab 7).");
-    Console.WriteLine("Доступні команди: lab1 [--json] | lab2 | lab3 [файл] | lab4 | lab5 [--file] [--cached] | lab6 | lab7 [report-*]\n");
+    Console.WriteLine("[CLI DISPATCHER] Запуск актуальної лабораторної (Lab 8: Async/Await & Cancellation).");
+    Console.WriteLine("Доступні команди: lab1 [--json] | lab2 | lab3 [файл] | lab4 | lab5 [--file] [--cached] | lab6 | lab7 [report-*] | lab8 [--file] [--cancel] [--stream]\n");
 }
 
 switch (targetLab)
@@ -55,5 +62,8 @@ switch (targetLab)
         break;
     case "lab7":
         Lab7Demo.Run(subArgs);
+        break;
+    case "lab8":
+        await Lab8Demo.RunAsync(subArgs);
         break;
 }

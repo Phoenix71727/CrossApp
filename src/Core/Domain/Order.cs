@@ -44,7 +44,7 @@ public sealed class Order
     public void AddLine(string productId, string productName, decimal price, int quantity)
     {
         if (Status != OrderStatus.Draft)
-            throw new InvalidOperationException($"Не можна додавати рядки до замовлення зі статусом '{Status}'. Дозволено лише для 'Draft'.");
+            throw new DomainException($"Не можна додавати рядки до замовлення зі статусом '{Status}'. Замовлення вже підтверджено або скасовано.");
 
         OrderLine line = OrderLine.Create(productId, productName, price, quantity);
         _lines.Add(line);
@@ -53,10 +53,10 @@ public sealed class Order
     public void Confirm()
     {
         if (!CanTransition(Status, OrderStatus.Confirmed))
-            throw new InvalidOperationException($"Неможливо підтвердити замовлення зі статусу '{Status}'. Дозволено лише для 'Draft'.");
+            throw new DomainException($"Неможливо підтвердити замовлення зі статусу '{Status}'. Дозволено лише для 'Draft'.");
 
         if (_lines.Count == 0)
-            throw new InvalidOperationException("Неможливо підтвердити порожнє замовлення: додайте хоча б один товар.");
+            throw new DomainException("Неможливо підтвердити порожнє замовлення: додайте хоча б один товар.");
 
         Status = OrderStatus.Confirmed;
     }
@@ -64,7 +64,7 @@ public sealed class Order
     public void Cancel()
     {
         if (!CanTransition(Status, OrderStatus.Cancelled))
-            throw new InvalidOperationException($"Неможливо скасувати замовлення зі статусу '{Status}'. Перехід заборонено.");
+            throw new DomainException($"Неможливо скасувати замовлення зі статусу '{Status}'. Перехід заборонено.");
 
         Status = OrderStatus.Cancelled;
     }
