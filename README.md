@@ -20,16 +20,21 @@
 
 ## Запуск (CLI Диспетчер команд)
 
-Застосунок підтримує модульний запуск будь-якої лабораторної роботи або конкретних аналітичних підкоманд:
+Застосунок підтримує модульний запуск будь-якої лабораторної роботи або конкретних підкоманд:
 
 ```bash
 # 1. Збирання проєкту
 dotnet build
 
-# 2. Запуск за замовчуванням (актуальна Лабораторна 8):
+# 2. Запуск за замовчуванням (актуальна Лабораторна 9: Шляхи, Конфігурація, Secrets):
 dotnet run --project src/Cli -f net10.0
 
-# 3. Модульний запуск конкретної лабораторної роботи:
+# 3. Лабораторна 9 (Шляхи, JSON, конфігурація, Secrets, експорт/імпорт):
+dotnet run --project src/Cli -f net10.0 -- export           # експорт замовлень у налаштований шлях (data/orders.json)
+dotnet run --project src/Cli -f net10.0 -- import           # імпорт і відображення замовлень з розрахованого шляху
+dotnet run --project src/Cli -f net10.0 -- lab9             # повна демонстрація конфігурації, секретів та сховища
+
+# 4. Модульний запуск попередніх лабораторних робіт:
 dotnet run --project src/Cli -f net10.0 -- lab1            # середовище ОС, архітектура, RID
 dotnet run --project src/Cli -f net10.0 -- lab1 --json     # звіт у форматі JSON
 dotnet run --project src/Cli -f net10.0 -- lab2            # архітектура Core+Cli, multi-targeting, публікація
@@ -42,23 +47,12 @@ dotnet run --project src/Cli -f net10.0 -- lab5 --file --cached # сховище
 dotnet run --project src/Cli -f net10.0 -- lab6            # доменні події, підписники, відписка (-=)
 dotnet run --project src/Cli -f net10.0 -- lab7            # LINQ-звіти, відкладене виконання, бонуси
 dotnet run --project src/Cli -f net10.0 -- lab8            # async/await, CancellationToken, DomainException
-
-# 4. Лабораторна 8 (Асинхронний імпорт, скасування, тести, бонуси):
-dotnet run --project src/Cli -f net10.0 -- lab8            # повна демонстрація: імпорт, анімований прогрес-бар, бонуси 1-4
-dotnet run --project src/Cli -f net10.0 -- --file          # очікуваний запуск методички: "Імпортовано записів: 17"
 dotnet run --project src/Cli -f net10.0 -- lab8 --cancel   # демонстрація скасування токена: "Імпорт скасовано."
-dotnet run --project src/Cli -f net10.0 -- lab8 --bad      # демонстрація доменного винятку: "Дані відхилено: Запис 1..."
-dotnet run --project src/Cli -f net10.0 -- lab8 --stream   # Бонус 1: потоковий імпорт (IAsyncEnumerable)
-dotnet run --project src/Cli -f net10.0 -- lab8 --linked   # Бонус 2: зв'язані токени скасування
-dotnet test                                                # запуск усіх unit-тестів (100% зелені, 13 тестів)
-dotnet test --collect:"XPlat Code Coverage"                # Бонус 4: збір звіту покриття коду
+dotnet run --project src/Cli -f net10.0 -- lab8 --bad      # демонстрація доменного винятку: "Дані відхилено..."
 
-# 5. Прямі підкоманди аналітичних звітів (Лабораторна 7):
-dotnet run --project src/Cli -f net10.0 -- report-groups   # розподіл замовлень за статусом
-dotnet run --project src/Cli -f net10.0 -- report-sum      # підсумкові показники (Totals)
-dotnet run --project src/Cli -f net10.0 -- report-top      # топ-5 замовлень за сумою
-dotnet run --project src/Cli -f net10.0 -- report-filter   # замовлення дорожче за 30 000 грн
-dotnet run --project src/Cli -f net10.0 -- report-join     # зведений звіт клієнтів (GroupJoin)
+# 5. Тестування (усі unit-тести: xUnit, 100% зелені):
+dotnet test
+dotnet test --collect:"XPlat Code Coverage"
 ```
 
 ---
@@ -79,7 +73,8 @@ CrossApp/
 │   ├── sample.csv          # 10+ валідних товарів + 3 дефектні рядки
 │   ├── sample.json         # товари у форматі JSON
 │   ├── mixed.csv           # змішані товари (P) і клієнти (C)
-│   └── orders.json         # збережені замовлення у файловому режимі (Лаба 5)
+│   ├── orders.json         # збережені замовлення у файловому режимі (Лаба 5, 8)
+│   └── orders_corrupt.json # дефектний файл для демонстрації DomainException (Лаба 8)
 ├── logs/
 │   └── app.log             # журнал доменних подій (Лаба 6)
 ├── src/
@@ -87,6 +82,8 @@ CrossApp/
 │   │   ├── EnvironmentInfo.cs   # збір параметрів ОС і середовища (Лаба 1-2)
 │   │   ├── SampleData.cs        # розширений генератор товарів, клієнтів і 17 замовлень
 │   │   ├── DomainException.cs       # доменний виняток для бізнес-правил (Лаба 8)
+│   │   ├── Configuration/       # Модель налаштувань застосунку (Лаба 9)
+│   │   │   └── AppOptions.cs    # AppOptions, StorageOptions, OrdersOptions, LoggingOptions
 │   │   ├── Abstractions/
 │   │   │   ├── IOrderStore.cs       # контракт сховища замовлень (Лаба 5)
 │   │   │   ├── INotificationSink.cs # контракт сповіщень для ручного DI (Лаба 6)
@@ -122,11 +119,13 @@ CrossApp/
 │   │   │   └── OrderService.cs      # доменний сервіс замовлень (асинхронний імпорт)
 │   │   └── Storage/
 │   │       ├── InMemoryOrderStore.cs
-│   │       ├── FileOrderStore.cs
+│   │       ├── FileOrderStore.cs    # атомарний запис (.tmp + Move), незмінна кирилиця (Лаба 9)
 │   │       ├── CachingOrderStore.cs # декоратор кешування (патерн Decorator)
 │   │       ├── OrderStoreFactory.cs # фабрика сховищ (патерн Simple Factory)
 │   │       └── JsonOrderImporter.cs # асинхронний імпортер (useAsync: true)
-│   ├── Cli/                # консольний клієнт, диспетчер команд
+│   ├── Cli/                # консольний клієнт, конфігураційний стек, диспетчер команд
+│   │   ├── appsettings.json             # базові налаштування (без секретів!)
+│   │   ├── appsettings.Development.json # налаштування профілю розробки
 │   │   ├── Demos/          # модульні сценарії демонстрації для кожної лаби
 │   │   │   ├── Lab1Demo.cs
 │   │   │   ├── Lab2Demo.cs
@@ -135,7 +134,8 @@ CrossApp/
 │   │   │   ├── Lab5Demo.cs
 │   │   │   ├── Lab6Demo.cs
 │   │   │   ├── Lab7Demo.cs
-│   │   │   └── Lab8Demo.cs
+│   │   │   ├── Lab8Demo.cs
+│   │   │   └── Lab9Demo.cs # конфігураційний конвеєр, читання secrets, експорт/імпорт
 │   │   ├── Notifications/
 │   │   │   └── NotificationSinks.cs
 │   │   └── Program.cs      # точка входу (компактний CLI-диспетчер команд)
@@ -144,9 +144,127 @@ CrossApp/
 │           ├── TestData.cs
 │           ├── OrderServiceTests.cs
 │           ├── ReportServiceTests.cs
-│           └── ImportTests.cs
+│           ├── ImportTests.cs
+│           └── ConfigurationTests.cs # тести ResolveFullPath, атомарного запису та кирилиці
 └── CrossApp.sln
 ```
+
+---
+
+## Лабораторна робота №9: Шляхи, JSON, конфігурація, Secrets
+
+### 1. Мета та правила реалізації
+- **Кросплатформність шляхів:** Повне усунення захардкодzoneних роздільників (`"\"`, `"/"`) та абсолютних Windows-дисків (`"C:\"`). Шляхи формуються виключно через `Path.Combine` та приводяться до канонічного абсолютного вигляду через `Path.GetFullPath(Path.Combine(root, FileName))`.
+- **Базовий каталог:** Файли даних за замовчуванням обчислюються відносно `AppContext.BaseDirectory` (каталог розміщення бінарних файлів застосунку), що гарантує однаковий доступ до файлів незалежно від того, з якої робочої директорії (`Environment.CurrentDirectory`) запущено процес (`solution root` чи `src/Cli`).
+- **Стек конфігурації (`Microsoft.Extensions.Configuration`):** Пакет підключено виключно у проєкті `src/Cli`. Бібліотека `src/Core` залишається чистим POCO і не має жодних зовнішніх залежностей.
+- **Ієрархія джерел конфігурації (порядок перекриття):**
+  1. `appsettings.json` (базовий конфіг)
+  2. `appsettings.{EnvironmentName}.json` (профіль `Development` або `Production`)
+  3. `UserSecrets` (`secrets.json` поза Git-репозиторієм)
+  4. Змінні середовища з префіксом `CROSSAPP_` (вкладені секції розділені подвійним підкресленням `__`)
+  5. Спрощена legacy-змінна середовища `CROSSAPP_DATA_PATH` (перекриває секцію `Storage:DataPath`)
+  6. Аргументи командного рядка (`CommandLine`)
+- **Безпека секретів (Secrets):** Ключ `Integration:ApiKey` ніколи не додається у файли конфігурації репозиторію та не комітиться у Git. У консоль виводиться виключно факт наявності та довжина секрету: `ApiKey: присутній, довжина {apiKey.Length}` (або `ApiKey: не заданий`).
+- **Атомарний запис JSON (.tmp + File.Move):** Запис даних у `FileOrderStore` здійснюється спочатку в тимчасовий файл із розширенням `.tmp`, після чого атомарно замінює цільовий файл через `File.Move(tmp, path, overwrite: true)`. Це унеможливлює пошкодження файлу при раптовому вимкненні живлення чи збої процесу під час запису.
+- **Збереження кирилиці:** Для серіалізації налаштовано `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`, що записує українські літери («Цемент», «Ціна») прямими UTF-8 символами без шістнадцяткових послідовностей екранування (`\u0426`).
+
+---
+
+### 2. Таблиця ключів конфігурації
+
+| Ключ конфігурації | Опис | Замовчування | Змінна середовища (PowerShell) | Змінна середовища (Bash) |
+|---|---|---|---|---|
+| `EnvironmentName` | Профіль середовища | `"Production"` / `"Development"` | `$env:CROSSAPP_EnvironmentName="Development"` | `export CROSSAPP_EnvironmentName="Development"` |
+| `Storage:DataPath` | Відносний/абсолютний каталог | `"data"` | `$env:CROSSAPP_Storage__DataPath="custom_data"` | `export CROSSAPP_Storage__DataPath="custom_data"` |
+| `Storage:FileName` | Ім'я файлу збереження | `"orders.json"` | `$env:CROSSAPP_Storage__FileName="orders.json"` | `export CROSSAPP_Storage__FileName="orders.json"` |
+| `Orders:Currency` | Валюта замовлень | `"UAH"` | `$env:CROSSAPP_Orders__Currency="USD"` | `export CROSSAPP_Orders__Currency="USD"` |
+| `Logging:MinimumLevel` | Рівень логування | `"Information"` / `"Debug"` | `$env:CROSSAPP_Logging__MinimumLevel="Debug"` | `export CROSSAPP_Logging__MinimumLevel="Debug"` |
+| `Integration:ApiKey` | Навчальний секретний ключ | *(немає в git)* | `$env:CROSSAPP_Integration__ApiKey="prod-key"` | `export CROSSAPP_Integration__ApiKey="prod-key"` |
+| `CROSSAPP_DATA_PATH` | Спрощене пряме перевизначення | *(не задана)* | `$env:CROSSAPP_DATA_PATH="C:\custom_orders"` | `export CROSSAPP_DATA_PATH="/tmp/orders"` |
+
+---
+
+### 3. Управління User Secrets
+
+Ідентифікатор User Secrets зберігається у `src/Cli/Cli.csproj`:
+```xml
+<PropertyGroup>
+  <UserSecretsId>c7f53a81-e2e1-482a-9f0a-8d1976bc4028</UserSecretsId>
+</PropertyGroup>
+```
+
+Фізичне розташування файлу `secrets.json` у системі:
+- **Windows:** `%APPDATA%\Microsoft\UserSecrets\c7f53a81-e2e1-482a-9f0a-8d1976bc4028\secrets.json`
+  (`C:\Users\<користувач>\AppData\Roaming\Microsoft\UserSecrets\c7f53a81-e2e1-482a-9f0a-8d1976bc4028\secrets.json`)
+- **Linux / macOS:** `~/.microsoft/usersecrets/c7f53a81-e2e1-482a-9f0a-8d1976bc4028/secrets.json`
+
+**Команди ініціалізації та перевірки:**
+```bash
+# 1. Запис секретного ключа для локальної розробки
+dotnet user-secrets set "Integration:ApiKey" "local-dev-key" --project src/Cli
+
+# 2. Перегляд списку зареєстрованих секретів
+dotnet user-secrets list --project src/Cli
+
+# 3. Перевірка статусу git (має залишатися абсолютно чистим!)
+git status
+```
+
+---
+
+### 4. Приклади запуску та демонстрації
+
+```bash
+# 1. Експорт замовлень за замовчуванням
+dotnet run --project src/Cli -f net10.0 -- export
+# Очікуваний вивід:
+# Файл даних : <шлях>/src/Cli/bin/Debug/net10.0/data/orders.json
+# ApiKey: присутній, довжина 13
+# Експортовано 3 записи.
+
+# 2. Імпорт збережених замовлень:
+dotnet run --project src/Cli -f net10.0 -- import
+
+# 3. Запуск з кореня репозиторію та з каталогу src/Cli (шлях до даних однаковий):
+cd c:\Users\LENOVO\lnu\3_course\1_semester\cross-platform\lab\CrossApp
+dotnet run --project src/Cli -f net10.0 -- export
+
+cd src\Cli
+dotnet run -f net10.0 -- export
+cd ..\..
+
+# 4. Перевизначення каталогу через спрощену змінну CROSSAPP_DATA_PATH:
+# PowerShell:
+$env:CROSSAPP_DATA_PATH = "C:\Users\LENOVO\crossapp_custom_data"
+dotnet run --project src/Cli -f net10.0 -- export
+$env:CROSSAPP_DATA_PATH = $null
+
+# Bash:
+# export CROSSAPP_DATA_PATH="/tmp/crossapp_data"
+# dotnet run --project src/Cli -f net10.0 -- export
+# unset CROSSAPP_DATA_PATH
+
+# 5. Перевизначення вкладеного ключа конфігурації через префікс CROSSAPP_:
+# PowerShell:
+$env:CROSSAPP_Orders__Currency = "EUR"
+$env:CROSSAPP_Storage__DataPath = "data_eur"
+dotnet run --project src/Cli -f net10.0 -- export
+$env:CROSSAPP_Orders__Currency = $null
+$env:CROSSAPP_Storage__DataPath = $null
+```
+
+---
+
+### 5. Таблиця нових Unit-тестів (`ConfigurationTests.cs`)
+
+| Назва тесту | Що перевіряє | Очікуваний результат |
+|---|---|---|
+| `StorageOptions_ResolveFullPath_WithRelativePath_CombinesAndCreatesDirectory` | Розрахунок відносного шляху та автоматичне створення каталогу | Каталог створюється, повертається абсолютний нормалізований шлях |
+| `StorageOptions_ResolveFullPath_WithRootedPath_IgnoresBaseDirectory` | Розрахунок при передачі абсолютного (rooted) шляху | Базовий каталог ігнорується, повертається шлях з кореневого шляху |
+| `AppOptions_HasExpectedDefaultValues` | Значення POCO-налаштувань за замовчуванням | `DataPath="data"`, `FileName="orders.json"`, `Currency="UAH"`, `Level="Information"` |
+| `FileOrderStore_WritesAtomically_AndCleansTmpFile` | Атомарність запису через `.tmp` + `File.Move` | Цільовий файл створено, `.tmp` файл повністю відсутній, дані коректні |
+| `FileOrderStore_SavesCyrillicWithoutUnicodeEscapes` | Незмінність української кирилиці при JSON-серіалізації | Символи «Цегла рядова М100» збережено без `\u0426` |
+| `FileOrderStore_WithCorruptedJson_ThrowsFormatExceptionWithHelpfulMessage` | Обробка дефектного JSON-файлу | Викидає зрозумілий `FormatException` із зазначенням шляху до файлу |
 
 ---
 

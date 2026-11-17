@@ -11,6 +11,8 @@ public sealed class FileOrderStore(string path) : IOrderStore
     private static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
@@ -22,19 +24,30 @@ public sealed class FileOrderStore(string path) : IOrderStore
     {
         if (_loaded) return;
 
-        if (File.Exists(_path))
+        if (!File.Exists(_path))
+        {
+            _loaded = true;
+            return;
+        }
+
+        try
         {
             string json = File.ReadAllText(_path);
             if (!string.IsNullOrWhiteSpace(json))
             {
-                var dtos = JsonSerializer.Deserialize<List<OrderDto>>(json) ?? [];
+                var dtos = JsonSerializer.Deserialize<List<OrderDto>>(json, Options) ?? [];
 
+                _cache.Clear();
                 foreach (var dto in dtos)
                 {
                     var order = Order.FromDto(dto);
                     _cache[order.Id] = order;
                 }
             }
+        }
+        catch (JsonException ex)
+        {
+            throw new FormatException($"Файл даних пошкоджено або має некоректний JSON формат: {_path}. Деталі: {ex.Message}", ex);
         }
 
         _loaded = true;
@@ -47,7 +60,21 @@ public sealed class FileOrderStore(string path) : IOrderStore
             Directory.CreateDirectory(directory);
 
         var dtos = _cache.Values.Select(o => o.ToDto()).ToList();
-        File.WriteAllText(_path, JsonSerializer.Serialize(dtos, Options));
+        var tmp = _path + ".tmp";
+        File.WriteAllText(tmp, JsonSerializer.Serialize(dtos, Options));
+        File.Move(tmp, _path, overwrite: true);
+    }
+
+    public void SaveAll(IEnumerable<Order> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        _cache.Clear();
+        foreach (var item in items)
+        {
+            _cache[item.Id] = item;
+        }
+        _loaded = true;
+        Flush();
     }
 
     public IReadOnlyList<Order> List()

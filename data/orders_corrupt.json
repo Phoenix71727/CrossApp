@@ -1,0 +1,44 @@
+[
+  {
+    "Id": "ORD-OK-01",
+    "CustomerId": "CUST-001",
+    "CreatedAt": "2026-11-11T10:00:00Z",
+    "Status": 0,
+    "Lines": [
+      {
+        "ProductId": "P-001",
+        "ProductName": "Ноутбук Lenovo ThinkPad",
+        "Price": 32500.00,
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Id": "ORD-CORRUPT-02",
+    "CustomerId": "",
+    "CreatedAt": "2026-11-11T10:05:00Z",
+    "Status": 0,
+    "Lines": [
+      {
+        "ProductId": "P-002",
+        "ProductName": "Бракований запис",
+        "Price": 1200.00,
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Id": "ORD-OK-03",
+    "CustomerId": "CUST-002",
+    "CreatedAt": "2026-11-11T10:10:00Z",
+    "Status": 0,
+    "Lines": [
+      {
+        "ProductId": "P-003",
+        "ProductName": "Миша бездротова",
+        "Price": 850.00,
+        "Quantity": 1
+      }
+    ]
+  }
+]

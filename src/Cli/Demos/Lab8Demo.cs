@@ -23,17 +23,30 @@ public static class Lab8Demo
         bool simulateCancel = args.Contains("--cancel") || args.Contains("--timeout");
         bool simulateBad = args.Contains("--bad");
 
-        string dataPath = Path.Combine("data", "orders.json");
+        string? customPath = args.FirstOrDefault(a => !a.StartsWith("--") && (a.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || File.Exists(a)));
+        string defaultBadPath = Path.Combine("data", "orders_corrupt.json");
+        string defaultOkPath = Path.Combine("data", "orders.json");
 
-        if (simulateBad)
+        string dataPath = customPath ?? (simulateBad && File.Exists(defaultBadPath) ? defaultBadPath : defaultOkPath);
+
+        bool createdTempBad = false;
+        if (simulateBad && !File.Exists(dataPath))
         {
+            createdTempBad = true;
             dataPath = Path.Combine(Path.GetTempPath(), $"bad_orders_{Guid.NewGuid():N}.json");
             string badJson = """
             [
               {
-                "Id": "ORD-BAD-01",
-                "CustomerId": "",
+                "Id": "ORD-OK-01",
+                "CustomerId": "CUST-001",
                 "CreatedAt": "2026-11-10T10:00:00Z",
+                "Status": 0,
+                "Lines": []
+              },
+              {
+                "Id": "ORD-BAD-02",
+                "CustomerId": "",
+                "CreatedAt": "2026-11-10T10:05:00Z",
                 "Status": 0,
                 "Lines": []
               }
@@ -42,7 +55,7 @@ public static class Lab8Demo
             await File.WriteAllTextAsync(dataPath, badJson);
         }
 
-        // Для лаконічного виклику "dotnet run --project src/Cli -- --file" (за методичкою)
+        // Для лаконічного виклику "dotnet run --project src/Cli -- --file"
         if (isDirectFileFlag)
         {
             using var directCts = new CancellationTokenSource();
@@ -151,7 +164,7 @@ public static class Lab8Demo
         finally
         {
             Console.CancelKeyPress -= cancelHandler;
-            if (simulateBad && File.Exists(dataPath))
+            if (createdTempBad && File.Exists(dataPath))
             {
                 try { File.Delete(dataPath); } catch { }
             }
