@@ -139,15 +139,89 @@ CrossApp/
 │   │   ├── Notifications/
 │   │   │   └── NotificationSinks.cs
 │   │   └── Program.cs      # точка входу (компактний CLI-диспетчер команд)
+│   ├── Api/                # HTTP Minimal API (net10.0, Лаба 10)
+│   │   ├── Contracts/
+│   │   │   └── OrderContracts.cs        # вихідні (OrderResponse) і вхідні (SaveOrderRequest) DTO
+│   │   ├── Endpoints/
+│   │   │   └── OrderEndpoints.cs        # маршрути CRUD /api/orders, /total, /confirm
+│   │   ├── Infrastructure/
+│   │   │   ├── ApiExceptionHandler.cs   # мапінг BadHttpRequestException -> 400, DomainException -> 409
+│   │   │   └── ValidationFilter.cs      # EndpointFilter для FluentValidation
+│   │   ├── Validators/
+│   │   │   └── SaveOrderRequestValidator.cs
+│   │   ├── Properties/
+│   │   │   └── launchSettings.json      # фіксований порт http://localhost:5080
+│   │   ├── Api.http                     # запити для VS Code REST Client
+│   │   ├── appsettings.json
+│   │   └── Program.cs
 │   └── tests/
-│       └── Core.Tests/     # проєкт unit-тестів xUnit (net10.0, посилання лише на Core)
-│           ├── TestData.cs
-│           ├── OrderServiceTests.cs
-│           ├── ReportServiceTests.cs
-│           ├── ImportTests.cs
-│           └── ConfigurationTests.cs # тести ResolveFullPath, атомарного запису та кирилиці
+│       ├── Core.Tests/     # проєкт unit-тестів xUnit (net10.0, посилання лише на Core)
+│       │   ├── TestData.cs
+│       │   ├── OrderServiceTests.cs
+│       │   ├── ReportServiceTests.cs
+│       │   ├── ImportTests.cs
+│       │   └── ConfigurationTests.cs # тести ResolveFullPath, атомарного запису та кирилиці
+│       └── Api.Tests/      # інтеграційні тести на WebApplicationFactory<Program> (Лаба 10)
+│           └── OrderEndpointsTests.cs
 └── CrossApp.sln
 ```
+
+---
+
+## Лабораторна робота №10: Minimal API: CRUD над Core, валідація, OpenAPI (Scalar)
+
+### 1. Запуск API, фіксований порт і документація
+* **Фіксований порт:** `http://localhost:5080` (зафіксовано у `src/Api/Properties/launchSettings.json`).
+* **OpenAPI / Scalar (лише у `Development`):**
+  * Документ OpenAPI: `http://localhost:5080/openapi/v1.json`
+  * Інтерактивний UI Scalar: `http://localhost:5080/scalar/v1`
+
+```bash
+# Запуск HTTP API
+dotnet run --project src/Api --urls http://localhost:5080
+
+# Запуск усіх тестів (Core.Tests + Api.Tests)
+dotnet test
+```
+
+### 2. Таблиця маршрутів (`/api/orders`)
+
+| Метод | Шлях | Тіло запиту | Коди відповідей |
+|---|---|---|---|
+| `GET` | `/health` | — | `200 OK` (`{ "status": "ok" }`) |
+| `GET` | `/api/orders` | — *(опційно `?page=1&pageSize=20&search=...`)* | `200 OK` (список або `{ items, total, page, pageSize }`) |
+| `GET` | `/api/orders/{id}` | — | `200 OK`, `404 Not Found` |
+| `GET` | `/api/orders/{id}/total` | — | `200 OK` (`{ id, total, currency }`), `404 Not Found` |
+| `POST` | `/api/orders` | `SaveOrderRequest` (`customerId`, `lines[]`) | `201 Created` (`Location`), `400 ValidationProblem` |
+| `PUT` | `/api/orders/{id}` | `SaveOrderRequest` (`customerId`, `lines[]`) | `200 OK`, `400 ValidationProblem`, `404 Not Found` |
+| `POST` | `/api/orders/{id}/confirm` | — | `200 OK`, `404 Not Found`, `409 Conflict` (`DomainException`) |
+| `DELETE` | `/api/orders/{id}` | — | `204 No Content`, `404 Not Found` |
+
+### 3. Приклади запитів `curl`
+
+```bash
+# 1. Створення замовлення (201 Created + Location)
+curl -i -X POST http://localhost:5080/api/orders -H "Content-Type: application/json" \
+  -d '{"customerId":"CUST-KIEV-1","lines":[{"productId":"P-100","productName":"Цемент М400","price":245.5,"quantity":10}]}'
+
+# 2. Невалідний запит (400 ValidationProblemDetails, не 500)
+curl -i -X POST http://localhost:5080/api/orders -H "Content-Type: application/json" \
+  -d '{"customerId":"","lines":[]}'
+
+# 3. Отримання списку з пагінацією та пошуком
+curl -i "http://localhost:5080/api/orders?page=1&pageSize=10&search=Цемент"
+
+# 4. Отримання підсумкової суми конкретного замовлення
+curl -i http://localhost:5080/api/orders/ORD-1001/total
+
+# 5. Видалення замовлення (204 No Content, після чого GET повертає 404)
+curl -i -X DELETE http://localhost:5080/api/orders/ORD-1001
+```
+
+### 4. Архітектурні рішення
+* **DTO окремо від доменної сутності:** `Order` містить приватні колекції, інваріанти та доменну поведінку (`Confirm`, `Cancel`), які не повинні потрапляти у JSON напряму. Контракти `OrderResponse` та `SaveOrderRequest` фіксують стабільний HTTP-контракт, незмінний при рефакторингу ядра або заміні сховища на EF Core.
+* **Час життя сервісів у DI:** `IOrderStore` (`InMemoryOrderStore` на потокобезпечному `ConcurrentDictionary`) та `IValidator<SaveOrderRequest>` зареєстровані як **`Singleton`**, щоб зберігати спільний стан замовлень між HTTP-запитами без створення нових екземплярів на кожен запит (на відміну від `Scoped`, який використовуватиметься для `DbContext` на 11-му тижні).
+* **Додаткові завдання (Бонуси 1–4):** реалізовано пагінацію/пошук, валідацію через `FluentValidation` + `ValidationFilter`, мапінг `DomainException -> 409 Conflict` у `ApiExceptionHandler` та 6 інтеграційних тестів на `WebApplicationFactory<Program>` у `tests/Api.Tests`.
 
 ---
 

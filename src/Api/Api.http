@@ -1,0 +1,81 @@
+@baseUrl = http://localhost:5080
+
+### 1. Перевірка стану API
+GET {{baseUrl}}/health
+
+### 2. Отримати список усіх замовлень
+GET {{baseUrl}}/api/orders
+
+### 2b. Пагінація та пошук (Бонус 1)
+GET {{baseUrl}}/api/orders?page=1&pageSize=2&search=Цемент
+
+### 3. Створити нове замовлення (201 Created + Location)
+# @name createOrder
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "CUST-ODESA-9",
+  "lines": [
+    {
+      "productId": "PROD-10",
+      "productName": "Фарба акрилова фасадна 'Сніжка'",
+      "price": 650.00,
+      "quantity": 3
+    }
+  ]
+}
+
+### 4. Отримати створене замовлення за id (200 OK)
+@createdId = {{createOrder.response.body.id}}
+GET {{baseUrl}}/api/orders/{{createdId}}
+
+### 5. Отримати підсумкову суму замовлення (доменний маршрут /total)
+GET {{baseUrl}}/api/orders/{{createdId}}/total
+
+### 6. Оновити замовлення через PUT (200 OK)
+PUT {{baseUrl}}/api/orders/{{createdId}}
+Content-Type: application/json
+
+{
+  "customerId": "CUST-ODESA-9",
+  "lines": [
+    {
+      "productId": "PROD-10",
+      "productName": "Фарба акрилова фасадна 'Сніжка' (оновлено)",
+      "price": 700.00,
+      "quantity": 4
+    }
+  ]
+}
+
+### 7. Невалідний PUT із порожнім списком позицій та від'ємною ціною (400 ValidationProblem)
+PUT {{baseUrl}}/api/orders/{{createdId}}
+Content-Type: application/json
+
+{
+  "customerId": "",
+  "lines": []
+}
+
+### 8. Невалідний POST з неправильним типом поля price (400 Bad Request, не 500)
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "CUST-ERR",
+  "lines": [
+    {
+      "productId": "P-1",
+      "productName": "Тест",
+      "price": "abc",
+      "quantity": 1
+    }
+  ]
+}
+
+### 9. Видалити створене замовлення (204 No Content)
+DELETE {{baseUrl}}/api/orders/{{createdId}}
+
+### 10. Перевірити, що після DELETE запит GET повертає 404 Not Found
+GET {{baseUrl}}/api/orders/{{createdId}}
